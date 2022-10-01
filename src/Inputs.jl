@@ -24,8 +24,8 @@ function GetSystemParameters()
     system.V0_min = 0.0
     system.V0_max = 100.0
 
-    system.bc_field= c_bc_open
-    system.bc_part= c_bc_open
+    system.bc_field= c_bc_periodic
+    system.bc_part=  c_bc_periodic
 
     if system.bc_field == c_bc_periodic
         system.V0_min = 0.0

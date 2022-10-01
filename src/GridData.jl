@@ -39,9 +39,11 @@ function ApplyBCtoGridData!(grid::Vector{Float64}, system::System)
     cell_max = system.ncells + gc
     if bc == c_bc_periodic 
         for i in range(1,gc,step=1)
-            grid[gc+i] += grid[ncells+i]
-            grid[ncells+1-i] = grid[i]
+            grid[cell_min+i] += grid[cell_max+i]
+            grid[cell_max-i] += grid[cell_min-i]
         end
+        grid[cell_min] += grid[cell_max]
+        grid[cell_max] = grid[cell_min]
     elseif bc == c_bc_open
         for i in range(1,gc,step=1)
             grid[cell_min+i] += grid[cell_min-i]

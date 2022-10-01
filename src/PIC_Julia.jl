@@ -23,7 +23,7 @@ function run_pic()
     # 01 - push back particles velocity
     #while system.time <= system.t_end
         # 1.- Get charge density
-        #charge_density = GetTotalChargeDensity(species_list, system) 
+        charge_density = GetTotalChargeDensity(species_list, system) 
         #charge_density = zeros(Float64, system.ncells)
 
         # 2.- Calculate electric potential
@@ -55,7 +55,7 @@ function run_pic()
         #system.time += system.dt
     #end
     ne = GetNumberDensity(species_list[1], system)
-    return ne#, electric_potential, electric_field
+    return charge_density, ne#, electric_potential, electric_field
 end
 
 end
