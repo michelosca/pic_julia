@@ -8,4 +8,6 @@ const epsilon_0 = 8.8541878128e-12 #F m^-1
 
 const c_bc_periodic = 1
 const c_bc_open = 2
+
+const gc = 2 # ghost cells, this must be changed if particle-to-grid shapes change
 end

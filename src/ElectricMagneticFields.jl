@@ -1,10 +1,11 @@
-module ElectricPotential
+module ElectricMagneticFields
 
 using SharedData: System, Species, Field
-using Constants: epsilon_0
-using Tools: GetNumberDensity
+using Constants: epsilon_0, gc
+using GridData: GetNumberDensity
 using SparseArrays: sparse
 using LinearSolve: solve, LinearProblem
+
 
 function GetElectricPotential(charge_density::Vector{Float64}, system::System)
 
@@ -58,32 +59,19 @@ end
 function InitializeElectricField(system::System)
 
     electric_field = Field()
-    electric_field.x = zeros(Float64, system.ncells)
-    electric_field.y = zeros(Float64, system.ncells)
-    electric_field.z = zeros(Float64, system.ncells)
+    electric_field.x = zeros(Float64, system.ncells + gc*2)
+    electric_field.y = zeros(Float64, system.ncells + gc*2)
+    electric_field.z = zeros(Float64, system.ncells + gc*2)
     return electric_field
 end
 
 function InitializeMagneticField(system::System)
 
     magnetic_field = Field()
-    magnetic_field.x = ones(Float64, system.ncells)
-    magnetic_field.y = zeros(Float64, system.ncells)
-    magnetic_field.z = zeros(Float64, system.ncells)
+    magnetic_field.x =  ones(Float64, system.ncells + gc*2)
+    magnetic_field.y = zeros(Float64, system.ncells + gc*2)
+    magnetic_field.z = zeros(Float64, system.ncells + gc*2)
     return magnetic_field 
-end
-
-function GetTotalChargeDensity(species_list::Vector{Species}, system::System)
-
-    charge_density = zeros(Float64, system.ncells)
-    for species in species_list
-        if species.is_background_gas
-            continue
-        end
-        dens = GetNumberDensity(species, system)
-        charge_density .+= dens .* species.charge
-    end
-    return charge_density
 end
 
 end

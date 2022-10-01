@@ -19,7 +19,7 @@ mutable struct Species
     charge_dens::Vector{Float64}
     
     particle_list::Vector{Particle}
-    particle_grid_list::Vector{Particle}
+    particle_grid_list::Vector{Vector{Particle}}
     particle_count::Int64
 
     is_background_gas::Bool

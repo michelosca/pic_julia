@@ -2,6 +2,7 @@ module Inputs
 
 using SharedData: System, Species, Particle
 using Constants: me, kb, e, amu
+using Constants: gc
 using Constants: c_bc_periodic, c_bc_open
 
 
@@ -44,20 +45,22 @@ function GetSpeciesList(system::System)
     # Add electrons
     counter += 1
     temp = 2.0 * e/kb
-    electrons = SetNewSpecies(counter, "electrons", me, -e, 1.e8, n_particles, temp, system)
+    is_background = false
+    electrons = SetNewSpecies(counter, "electrons", me, -e, 1.e8, n_particles, temp, is_background, system)
     push!(species_list, electrons)
 
     # Add Ar ions
     counter += 1
     temp = 300.0
-    Ar_ions = SetNewSpecies(counter, "Ar+", 40*amu, e, 1.e8, n_particles, temp, system)
+    is_background = false
+    Ar_ions = SetNewSpecies(counter, "Ar+", 40*amu, e, 1.e8, n_particles, temp, is_background, system)
     push!(species_list, Ar_ions)
 
     # Add Ar background gas 
     counter += 1
     temp = 300.0
-    Ar_gas = SetNewSpecies(counter, "Ar", 40*amu, e, 0.0, 0, temp, system)
-    Ar_gas.is_background_gas = true
+    is_background = true 
+    Ar_gas = SetNewSpecies(counter, "Ar", 40*amu, e, 0.0, 0, temp, is_background, system)
     push!(species_list, Ar_gas)
 
     return species_list
@@ -74,7 +77,7 @@ end
 
 function SetNewSpecies(counter::Int64, name::String, mass::Float64,
     charge::Float64, part_weight::Float64, part_count::Int64, temp::Float64,
-    system::System)
+    background_species::Bool, system::System)
 
     species = InitSpeciesBlock(system)
     species.id = counter
@@ -83,15 +86,19 @@ function SetNewSpecies(counter::Int64, name::String, mass::Float64,
     species.charge = charge 
     species.weight = part_weight
     species.particle_count = part_count
+    species.is_background_gas = background_species
 
-    for i in range(1,species.particle_count,step=1)
-        part = InitParticle(system, species, temp)
-        push!(species.particle_list, part)
-    end
-    
-    species.particle_grid_list = Vector{Particle}[]
-    for i in range(1, system.ncells, step=1)
-        push!(species.particle_grid_list, Particle[])
+    if !background_species
+        for i in range(1,species.particle_count,step=1)
+            part = InitParticle(system, species, temp)
+            push!(species.particle_list, part)
+        end
+        
+        species.particle_grid_list = Vector{Particle}[]
+        species.particle_grid_list = Vector{Particle}[]
+        for i in range(1, system.ncells, step=1)
+            push!(species.particle_grid_list, Particle[])
+        end
     end
     return species
 end
