@@ -2,10 +2,10 @@ module PIC_Julia
 
 using Inputs: GetSystemParameters, GetSpeciesList
 using PrintModule: PrintSpecies
-using GridData: GetTotalChargeDensity, GetNumberDensity
-#using ElectricMagneticFields: UpdateElectricField!, GetElectricPotential
+using GridData: GetTotalChargeDensity
+using ElectricMagneticFields: UpdateElectricField!, GetElectricPotential
 using ElectricMagneticFields: InitializeElectricField, InitializeMagneticField
-#using ParticleIntegrator: IntegrateParticlesPhaseSpace!
+using ParticleIntegrator: IntegrateParticlesPhaseSpace!
 #using Tools: RealocateParticlesToGridList!
 #using Tools: RealocateParticlesToMainList!
 
@@ -24,21 +24,20 @@ function run_pic()
     #while system.time <= system.t_end
         # 1.- Get charge density
         charge_density = GetTotalChargeDensity(species_list, system) 
-        #charge_density = zeros(Float64, system.ncells)
 
         # 2.- Calculate electric potential
-        #electric_potential = GetElectricPotential(charge_density, system)
+        electric_potential = GetElectricPotential(charge_density, system)
 
         ## 3.- Calculate electric field
-        #charge_dens_min = charge_density[1]
-        #charge_dens_max = charge_density[end]
-        #UpdateElectricField!(electric_field, electric_potential, charge_dens_min,
-        #    charge_dens_max, system)
-        ##UpdateMagneticField!(magnetic_field)
+        charge_dens_min = charge_density[1]
+        charge_dens_max = charge_density[end]
+        UpdateElectricField!(electric_field, electric_potential, charge_dens_min,
+            charge_dens_max, system)
+        #UpdateMagneticField!(magnetic_field)
 
         ## 4.- Update particle pos and vel
-        #IntegrateParticlesPhaseSpace!(species_list, system, electric_field,
-        #    magnetic_field)
+        IntegrateParticlesPhaseSpace!(species_list, system, electric_field,
+            magnetic_field)
 
         # 5.- Boundary conditions
         # -> particle BC applied in the integrator
@@ -54,8 +53,7 @@ function run_pic()
         # 6.- Update time
         #system.time += system.dt
     #end
-    ne = GetNumberDensity(species_list[1], system)
-    return charge_density, ne#, electric_potential, electric_field
+    return charge_density, electric_potential, electric_field#, electric_potential, electric_field
 end
 
 end

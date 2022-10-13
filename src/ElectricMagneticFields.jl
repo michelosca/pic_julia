@@ -9,8 +9,10 @@ using LinearSolve: solve, LinearProblem
 
 function GetElectricPotential(charge_density::Vector{Float64}, system::System)
 
-    ncells = system.ncells-2
     dx = system.dx
+    ncells = system.ncells - 2
+    cell_start = gc + 2
+    cell_end = system.ncells + gc - 1 #cell_start + ncells
 
     mid_diag = (range(1,ncells,step=1), range(1,ncells,step=1))
     upper_diag =  (range(1,ncells-1,step=1), range(2,ncells,step=1))
@@ -19,7 +21,7 @@ function GetElectricPotential(charge_density::Vector{Float64}, system::System)
         cat(dims=1, mid_diag[2], upper_diag[2], bottom_diag[2]),
         cat(dims=1, ones(ncells)*-2.0, ones(2*(ncells-1))))
 
-    charge_density_input = charge_density[2:end-1].*-dx*dx/epsilon_0
+    charge_density_input = charge_density[cell_start:cell_end].*-dx*dx/epsilon_0
     charge_density_input[1] -= system.V0_min
     charge_density_input[end] -= system.V0_max
     prob = LinearProblem(matrix, charge_density_input)
