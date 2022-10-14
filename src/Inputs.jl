@@ -28,10 +28,10 @@ function GetSystemParameters()
     system.V0_min = 0.0
     system.V0_max = 1.0
 
-    system.bc_field= c_bc_periodic #open #
-    system.bc_part=  c_bc_periodic #open #
+    system.bc_field= c_bc_open #periodic #
+    system.bc_part=  c_bc_open #periodic #
 
-    if system.bc_field == c_bc_periodic
+    if system.bc_field == c_bc_open #periodic
         system.V0_min = 0.0
         system.V0_max = 0.0
     end
@@ -52,7 +52,14 @@ function GetSpeciesList(system::System)
     counter += 1
     temp = 2.0 * e/kb
     is_background = false
-    electron_dist = x -> 1 + 0.5*sin(2*pi/L*x)
+    function electron_dist(x)
+        a = 1
+        #if x>L/2
+        #    a = 0
+        #end
+        #a = 1 + 0.1*sin(2*pi/L*x)
+        return a
+    end
     electrons = SetNewSpecies(counter, "electrons", me, -e, 1.e8, n_particles,
         temp, is_background, system, electron_dist )
     push!(species_list, electrons)
@@ -75,17 +82,6 @@ function GetSpeciesList(system::System)
 
     return species_list
 end
-
-function InitParticle(species::Species, temp::Float64, part_pos::Float64)
-    part = Particle()
-    sigma = sqrt(temp * kb / species.mass)
-
-    part.pos = part_pos
-    part.vel = randn(Float64, 3) * sigma
-
-    return part
-end
-
 
 function SetNewSpecies(counter::Int64, name::String, mass::Float64,
     charge::Float64, part_weight::Float64, part_count::Int64, temp::Float64,
@@ -114,14 +110,20 @@ function SetNewSpecies(counter::Int64, name::String, mass::Float64,
             # Set particle's position
             R = rand()
             part_pos = nothing
-            for x in x_grid
+            x_0 = x_grid[1]
+            for x in x_grid[2:end]
                 if R < spatial_cdf(x)
-                    part_pos = x
+                    part_pos = rand() * dx + x_0
                     break
                 end
+                x_0 = x
             end
             if part_pos === nothing
                 print("***ERROR*** Particle has not been located\n")
+            elseif part_pos > x_max
+                print("***ERROR*** Particle pos > x_max\n")
+            elseif part_pos < x_min
+                print("***ERROR*** Particle pos < x_min\n")
             end
 
             part = InitParticle(species, temp, part_pos)
@@ -135,6 +137,16 @@ function SetNewSpecies(counter::Int64, name::String, mass::Float64,
         end
     end
     return species
+end
+
+function InitParticle(species::Species, temp::Float64, part_pos::Float64)
+    part = Particle()
+    sigma = sqrt(temp * kb / species.mass)
+
+    part.pos = part_pos
+    part.vel = randn(Float64, 3) * sigma
+
+    return part
 end
 
 function InitSpeciesBlock(system::System)
@@ -166,7 +178,12 @@ function non_uniform_particle_distribution(dist, system::System)
     dist_norm = x -> dist(x) / area * dx
 
     # Cumulative distribution function
-    cdf = x -> sum( map(dist_norm, x_grid[1:round(Int64,(x-x_min)/dx)+1] ) )
+    cdf = x -> sum( map(dist_norm, x_grid[1:round(Int64,(x-x_min)/dx)] ) )
+
+    # Chech that cumulative spatial distribution is always positive
+    if any(map(cdf, x_grid) .< 0)
+        print("***ERROR*** Density spatial distribution cannot have negative values\n")
+    end
 
     return cdf
 end

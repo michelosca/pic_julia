@@ -38,6 +38,7 @@ function ApplyBCtoGridData!(grid::Vector{Float64}, system::System)
 
     bc = system.bc_field
     if bc == c_bc_periodic 
+        # Past data at ghost cells to the opposite boundary
         for i in range(1,gc,step=1)
             grid[cell_min+i] += grid[cell_max+i]
             grid[cell_max-i] += grid[cell_min-i]
@@ -45,9 +46,12 @@ function ApplyBCtoGridData!(grid::Vector{Float64}, system::System)
         grid[cell_min] += grid[cell_max]
         grid[cell_max] = grid[cell_min]
     elseif bc == c_bc_open
-        for i in range(1,gc,step=1)
+        # Fold ghost cells data back into the adjacent boundary 
+        for i in range(1,gc-1,step=1)
             grid[cell_min+i] += grid[cell_min-i]
+            grid[cell_min-i] = 0.0
             grid[cell_max-i] += grid[cell_max+i]
+            grid[cell_max+i] = 0.0
         end
 
         # Last and first grid have a dx/2 width
