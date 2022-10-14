@@ -2,7 +2,7 @@ module ParticleIntegrator
 
 using SharedData: Species, System, Field
 using LinearAlgebra: cross
-using Tools: InterpolateGridToPoint
+using Tools: InterpolateFieldToPoint
 using ParticleBC: ParticleBoundaryConditions!
 
 function IntegrateParticlesPhaseSpace!(species_list::Vector{Species},
@@ -30,8 +30,8 @@ function IntegrateParticlesPhaseSpace!(species_list::Vector{Species},
             #print(" - Part pos ", pos,"\n")
             #print(" - Part vel ", vel,"\n")
 
-            e_field = InterpolateGridToPoint(electric_field, pos, system)
-            b_field = InterpolateGridToPoint(magnetic_field, pos, system)
+            e_field = InterpolateFieldToPoint(electric_field, pos, system)
+            b_field = InterpolateFieldToPoint(magnetic_field, pos, system)
             #print(" - E field ", e_field,"\n")
             #print(" - B field ", b_field,"\n")
 

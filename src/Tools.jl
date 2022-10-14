@@ -2,11 +2,12 @@ module Tools
 
 using SharedData: Species, System, Field
 using Constants: c_bc_open, c_bc_periodic
-using Constants: gc
+using Constants: c_stag_centre, c_stag_right
+using Constants: c_field_magnetic, c_field_electric
 
 function InterpolateParticleToGrid!(field::Vector{Float64}, part_pos::Float64, system::System)
 
-    cell_x, gx = ParticleToGrid(part_pos, system)
+    cell_x, gx = ParticleToGrid(part_pos, system, c_stag_centre)
 
     # Add particle values to field grid
     field[cell_x - 1] += gx[1]
@@ -14,27 +15,61 @@ function InterpolateParticleToGrid!(field::Vector{Float64}, part_pos::Float64, s
     field[cell_x + 1] += gx[3]
 end
 
-function InterpolateGridToPoint(field::Vector{Float64}, part_pos::Float64, system::System)
+function InterpolateFieldToPoint(field::Field, part_pos::Float64, system::System)
 
+    stag_list = zeros(Int64, 3)
 
-    cell_x, gx = ParticleToGrid(part_pos, system)
+    # Electric field
+    # - Ex is centre staggered
+    # - Ey and Ez are right staggered
+    # Magnetic field
+    # - Bx is right staggered
+    # - By and Bz are centre staggered
 
-    value_at_point = 0.0 
-    value_at_point += gx[1] * field[cell_x - 1]
-    value_at_point += gx[2] * field[cell_x]
-    value_at_point += gx[3] * field[cell_x + 1]
+    if field.id == c_field_electric
+        stag_list[1] = c_stag_centre
+        stag_list[2] = c_stag_right
+        stag_list[3] = c_stag_right
+    elseif field.id == c_field_magnetic
+        stag_list[1] = c_stag_right
+        stag_list[2] = c_stag_centre
+        stag_list[3] = c_stag_centre
+    end
 
-    return value_at_point
+    cell_x, gx = ParticleToGrid(part_pos, system, stag_list[1])
+    cell_y, gy = ParticleToGrid(part_pos, system, stag_list[2])
+    cell_z, gz = ParticleToGrid(part_pos, system, stag_list[3])
+
+    field_at_point = zeros(Float64, 3) 
+    field_at_point[1] += gx[1] * field.x[cell_x - 1]
+    field_at_point[1] += gx[2] * field.x[cell_x]
+    field_at_point[1] += gx[3] * field.x[cell_x + 1]
+
+    field_at_point[2] += gy[1] * field.y[cell_y - 1]
+    field_at_point[2] += gy[2] * field.y[cell_y]
+    field_at_point[2] += gy[3] * field.y[cell_y + 1]
+
+    field_at_point[3] += gz[1] * field.z[cell_z - 1]
+    field_at_point[3] += gz[2] * field.z[cell_z]
+    field_at_point[3] += gz[3] * field.z[cell_z + 1]
+
+    return field_at_point 
 end
 
-function ParticleToGrid(part_pos::Float64, system::System)
+function ParticleToGrid(part_pos::Float64, system::System, stagger::Int64)
 
     x_min = system.x_min
     dx = system.dx
+    gc = system.gc
 
     cell_x_r = (part_pos - x_min) / dx
-    cell_x = floor(Int64, cell_x_r + 0.5)
-    cell_frac_x = Float64(cell_x) - cell_x_r
+    if stagger == c_stag_centre
+        cell_x = floor(Int64, cell_x_r + 0.5)
+        cell_frac_x = Float64(cell_x) - cell_x_r
+    elseif stagger == c_stag_right
+        cell_x = floor(Int64, cell_x_r)
+        cell_frac_x = Float64(cell_x) - cell_x_r
+    end
 
     # Cell position in field grid
     cell_x += gc + 1

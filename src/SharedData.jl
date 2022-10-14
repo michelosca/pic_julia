@@ -16,7 +16,6 @@ mutable struct Species
     weight::Float64
 
     dens::Vector{Float64}
-    charge_dens::Vector{Float64}
     
     particle_list::Vector{Particle}
     particle_grid_list::Vector{Vector{Particle}}
@@ -38,6 +37,11 @@ mutable struct System
     step::Int64
     
     ncells::Int64
+    cell_min::Int64
+    cell_max::Int64
+    gc::Int64
+    ncells_total::Int64
+
     x_min::Float64
     x_max::Float64
     Lx::Float64
@@ -51,18 +55,13 @@ mutable struct System
     System() = new()
 end
 
-mutable struct PlasmaParameters
-    total_dens::Vector{Float64}
-    total_charge_dens::Vector{Float64}
-    electric_potential::Vector{Float64}
-    electric_field::Vector{Float64}
-    PlasmaParameters() = new()
-end
-
 mutable struct Field
+
+    id::Int64
     x::Vector{Float64}
     y::Vector{Float64}
     z::Vector{Float64}
+
     Field() = new()
 end
 

@@ -9,17 +9,21 @@ using ParticleIntegrator: IntegrateParticlesPhaseSpace!
 #using Tools: RealocateParticlesToGridList!
 #using Tools: RealocateParticlesToMainList!
 
+using TestModule: test_species_densities, test_plot_field
+using Constants: c_field_electric, c_field_pot, c_field_rho
+
 function run_pic()
+
+    # Load system parameters
     system = GetSystemParameters()
+
+    # Load species data
     species_list = GetSpeciesList(system)
-    #for species in species_list
-    #    PrintSpecies(species)
-    #end
+
+    # Load electric and magnetic field data
     electric_field = InitializeElectricField(system)
     magnetic_field = InitializeMagneticField(system)
 
-    # [ ] test particles temperatures
-    
     # 01 - push back particles velocity
     #while system.time <= system.t_end
         # 1.- Get charge density
@@ -29,8 +33,8 @@ function run_pic()
         electric_potential = GetElectricPotential(charge_density, system)
 
         ## 3.- Calculate electric field
-        charge_dens_min = charge_density[1]
-        charge_dens_max = charge_density[end]
+        charge_dens_min = charge_density[system.cell_min]
+        charge_dens_max = charge_density[system.cell_max]
         UpdateElectricField!(electric_field, electric_potential, charge_dens_min,
             charge_dens_max, system)
         #UpdateMagneticField!(magnetic_field)
@@ -40,7 +44,7 @@ function run_pic()
             magnetic_field)
 
         # 5.- Boundary conditions
-        # -> particle BC applied in the integrator
+        # -> particle BC applied while integrating Phase-Space 
 
         # 6.- Collisions: 6.1.- gather particles in cells
         #RealocateParticlesToGridList!(species_list)
@@ -53,7 +57,11 @@ function run_pic()
         # 6.- Update time
         #system.time += system.dt
     #end
-    return charge_density, electric_potential, electric_field#, electric_potential, electric_field
+    test_species_densities(species_list, system)
+    test_plot_field(charge_density, system, c_field_rho)
+    test_plot_field(electric_potential, system, c_field_pot)
+    test_plot_field(electric_field.x, system, c_field_electric)
+    return charge_density, electric_potential, electric_field
 end
 
 end
