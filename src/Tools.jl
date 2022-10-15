@@ -4,6 +4,7 @@ using SharedData: Species, System, Field
 using Constants: c_bc_open, c_bc_periodic
 using Constants: c_stag_centre, c_stag_right
 using Constants: c_field_magnetic, c_field_electric
+using Constants: K_to_eV
 
 function InterpolateParticleToGrid!(field::Vector{Float64}, part_pos::Float64, system::System)
 
@@ -119,5 +120,53 @@ function RealocateParticlesToMainList(species_list::Vector{Species})
     end
 end
 
+
+function GetUnits!(var::Union{String,SubString{String}})
+    # Identify units definition
+    units_fact = 1.0
+    units_index = findlast("_", var)
+    if !(units_index === nothing)
+        units_index = units_index[1]
+        units_str = lowercase(var[units_index+1:end])
+        match_flag = false
+        if (units_str=="ev")
+            # this eV refers to TEMPERATURE!
+            units_fact = 1.0/K_to_eV
+            match_flag = true
+        elseif (units_str=="eev")
+            # this eV refers to ENERGY 
+            units_fact = e
+            match_flag = true
+        elseif (units_str=="mtorr")
+            units_fact = 0.13332237
+            match_flag = true
+        elseif (units_str=="kw" || units_str=="khz")
+            units_fact = 1.e3
+            match_flag = true
+        elseif (units_str=="mhz" || units_str=="mw")
+            units_fact = 1.e6
+            match_flag = true
+        elseif (units_str=="ghz")
+            units_fact = 1.e9
+            match_flag = true
+        elseif (units_str=="microns")
+            units_fact = 1.e-6
+            match_flag = true
+        elseif (units_str=="nm")
+            units_fact = 1.e-9
+            match_flag = true
+        elseif (units_str=="sccm")
+            # The units_fact still needs to be divided by system.V, however,
+            # just in case the volume changes, this is done in FunctionTerms.jl
+            ns = 2.686780111798444e25 # Standard density at Ps = 101325 Pa and Ts = 273.15 K
+            units_fact = 1.e-6 / 60 * ns
+            match_flag = true
+        end
+        if match_flag
+            var = strip(var[1:units_index-1])
+        end
+    end
+    return units_fact, var
+end
 
 end

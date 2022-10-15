@@ -20,9 +20,12 @@ mutable struct Species
     particle_list::Vector{Particle}
     particle_grid_list::Vector{Vector{Particle}}
     particle_count::Int64
+    part_per_cell::Int64
 
-    is_background_gas::Bool
-    temp::Float64
+    is_background_species::Bool
+    init_temp::Float64
+    init_dens::Float64
+    init_spatial_distribution::Union{Int64, Float64, Expr}
 
     Species() = new()
 end
@@ -35,6 +38,7 @@ mutable struct System
     t_end::Float64
     
     step::Int64
+    step_end::Int64
     
     ncells::Int64
     cell_min::Int64
@@ -47,11 +51,17 @@ mutable struct System
     Lx::Float64
     dx::Float64
 
-    bc_field::Int64
-    bc_part::Int64
+    bc_field_min::Int64
+    bc_field_max::Int64
+    bc_part_min::Int64
+    bc_part_max::Int64
 
     V0_min::Float64
     V0_max::Float64
+
+    folder::String
+    log_file::String
+
     System() = new()
 end
 
@@ -63,6 +73,20 @@ mutable struct Field
     z::Vector{Float64}
 
     Field() = new()
+end
+
+mutable struct OutputBlock
+    
+    t_start::Float64
+    t_end::Float64
+    dt::Float64
+
+    parameter_id::Int64
+
+    averaged::Bool
+    dt_av::Float64
+
+    OutputBlock() = new()
 end
 
 end

@@ -53,12 +53,18 @@ end
 
 function ApplyElectricPotentialBC!(electric_potential::Vector{Float64}, system::System)
 
-    if system.bc_field == c_bc_periodic
-        cell_min = system.cell_min 
-        cell_max = system.cell_max
-        gc = system.gc
+    cell_min = system.cell_min
+    cell_max = system.cell_max
+    gc = system.gc
+
+    if system.bc_field_min == c_bc_periodic
         for i in range(1,gc,step=1)
             electric_potential[cell_min - i] = electric_potential[cell_max - 1]
+        end
+    end
+
+    if system.bc_field_max == c_bc_periodic
+        for i in range(1,gc,step=1)
             electric_potential[cell_max + i] = electric_potential[cell_min + i]
         end
     end
@@ -88,15 +94,22 @@ function ApplyElectricFieldBC!(electric_field::Field, system::System,
     cell_min = system.cell_min
     cell_max = system.cell_max
     gc = system.gc
-    if system.bc_field == c_bc_open
+    if system.bc_field_min == c_bc_open
         dx = system.dx
-
         ex[cell_min] = ex[cell_min+1] - charge_dens_min * dx /epsilon_0
-        ex[cell_max] = ex[cell_max-1] + charge_dens_max * dx /epsilon_0
 
-    elseif system.bc_field == c_bc_periodic
+    elseif system.bc_field_min == c_bc_periodic
         for i in range(1,gc,step=1)
             ex[cell_min-i] = ex[cell_min+i]
+        end
+    end
+
+    if system.bc_field_max == c_bc_open
+        dx = system.dx
+        ex[cell_max] = ex[cell_max-1] + charge_dens_max * dx /epsilon_0
+
+    elseif system.bc_field_max == c_bc_periodic
+        for i in range(1,gc,step=1)
             ex[cell_max+i] = ex[cell_max-i]
         end
     end

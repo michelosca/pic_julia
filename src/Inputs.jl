@@ -1,191 +1,286 @@
+# Copyright (C) 2021 Michel Osca Engelbrecht
+#
+# This file is part of PIC Julia.
+#
+# PIC Julia is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# PIC Julia is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with PIC Julia. If not, see <https://www.gnu.org/licenses/>.
+
 module Inputs
 
-using SharedData: System, Species, Particle
-using Constants: me, kb, e, amu
-using Constants: gc_triangle
-using Constants: c_bc_periodic, c_bc_open
+using Constants: c_error
+using Constants: c_block_system, c_block_species
+using SharedData: Species, System, OutputBlock
+using InputBlock_System: StartFile_System!, StartSystemBlock!
+using InputBlock_System: ReadSystemEntry!, EndSystemBlock!, EndFile_System!
+using InputBlock_Species: StartFile_Species!, StartSpeciesBlock!
+using InputBlock_Species: ReadSpeciesEntry!, EndSpeciesBlock!, EndFile_Species!
+
+# The input deck is read twice
+# 1ST READ
+## -> Read SYSTEM paramters: ncells, dx, x_min, x_max, etc.
+##    - System parameters are checked after block is read so that these values
+##    should be ready to use at the end of the first read of the input deck,
+##    i.e. at EndFile_<block> at 1st read system parameters can be used
+##
+## -> Read SPECIES blocks and parameters: names, id, mass, part.count, etc.
+##    - Species parameters are check at  EndFile_Species, therefore species
+##    data should be fully available for the second read
+
+# INPUT BLOCK IDs
+global block_id = 0
+
+function SetupInputData!(filename::String, species_list::Vector{Species}, 
+    system::System, output_list::Vector{OutputBlock})
+
+    errcode = 0
+
+    # Opens the file given in filename and reads each line
+    for read_step in 1:2
+        print("Reading $read_step of the input deck...\n")
+        errcode = StartFile!(read_step, species_list, system, output_list)
+        if (errcode == c_error) return errcode end
+
+        errcode = ReadFile!(filename, read_step, species_list, system,
+            output_list)
+        if (errcode == c_error) return errcode end
+
+        errcode = EndFile!(read_step, species_list, system, output_list)
+        if (errcode == c_error) return errcode end
+        print("End of input deck reading\n\n")
+    end
+    GetInputFolder!(system, filename)
+
+    return errcode
+end
 
 
-function GetSystemParameters()
-    system = System()
-
-    system.ncells = 100
-    system.gc = gc_triangle
-    system.cell_min = system.gc + 1
-    system.cell_max = system.gc + system.ncells
-    system.ncells_total = system.ncells + 2*system.gc
-    system.x_min = 0.0
-    system.x_max = 0.1
-    system.Lx = system.x_max - system.x_min
-    system.dx = system.Lx / (system.ncells-1)
+function ReadFile!(filename::String, read_step::Int64,
+    species_list::Vector{Species},
+    system::System, output_list::Vector{OutputBlock})
     
-    system.t_start = 0.0
-    system.t_end = 1.e-6
-    system.time = system.t_start
-    system.dt = 1.e-8
-    system.step = 0
+    errcode = 0
 
-    system.V0_min = 0.0
-    system.V0_max = 1.0
-
-    system.bc_field= c_bc_open #periodic #
-    system.bc_part=  c_bc_open #periodic #
-
-    if system.bc_field == c_bc_open #periodic
-        system.V0_min = 0.0
-        system.V0_max = 0.0
-    end
-
-    return system
-end
-
-function GetSpeciesList(system::System)
-
-    species_list = Species[]
-
-    L = system.Lx
-
-    n_particles = 100000
-
-    counter = 0
-    # Add electrons
-    counter += 1
-    temp = 2.0 * e/kb
-    is_background = false
-    function electron_dist(x)
-        a = 1
-        #if x>L/2
-        #    a = 0
-        #end
-        #a = 1 + 0.1*sin(2*pi/L*x)
-        return a
-    end
-    electrons = SetNewSpecies(counter, "electrons", me, -e, 1.e8, n_particles,
-        temp, is_background, system, electron_dist )
-    push!(species_list, electrons)
-
-    # Add Ar ions
-    counter += 1
-    temp = 300.0
-    is_background = false
-    Ar_ions = SetNewSpecies(counter, "Ar+", 40*amu, e, 1.e8, n_particles, temp,
-        is_background, system, x -> 1)
-    push!(species_list, Ar_ions)
-
-    # Add Ar background gas 
-    counter += 1
-    temp = 300.0
-    is_background = true 
-    Ar_gas = SetNewSpecies(counter, "Ar", 40*amu, e, 0.0, 0, temp, is_background,
-        system, x -> 1)
-    push!(species_list, Ar_gas)
-
-    return species_list
-end
-
-function SetNewSpecies(counter::Int64, name::String, mass::Float64,
-    charge::Float64, part_weight::Float64, part_count::Int64, temp::Float64,
-    background_species::Bool, system::System, spatial_distribution)
-
-    species = InitSpeciesBlock(system)
-    species.id = counter
-    species.name = name
-    species.mass = mass
-    species.charge = charge 
-    species.weight = part_weight
-    species.particle_count = part_count
-    species.is_background_gas = background_species
-
-    if !background_species
-
-        # Spatial particle distribution
-        x_min = system.x_min
-        x_max = system.x_max
-        dx = system.dx
-        spatial_cdf = non_uniform_particle_distribution(spatial_distribution, system)
-        x_grid = range(x_min, x_max, step=dx)
-
-        for i in range(1,species.particle_count,step=1)
-
-            # Set particle's position
-            R = rand()
-            part_pos = nothing
-            x_0 = x_grid[1]
-            for x in x_grid[2:end]
-                if R < spatial_cdf(x)
-                    part_pos = rand() * dx + x_0
-                    break
-                end
-                x_0 = x
+    open(filename,"r") do f
+        constants = Tuple{SubString{String}, SubString{String}}[]
+        line = 1
+        while ! eof(f)
+            s = readline(f)
+            # ReadLine identifies each line on filename
+            errcode = ReadLine!(s, read_step, species_list,
+                system, output_list, constants)
+            if (errcode == c_error)
+                print("***ERROR*** Stop reading at file line ", line,"\n")
+                return errcode  
             end
-            if part_pos === nothing
-                print("***ERROR*** Particle has not been located\n")
-            elseif part_pos > x_max
-                print("***ERROR*** Particle pos > x_max\n")
-            elseif part_pos < x_min
-                print("***ERROR*** Particle pos < x_min\n")
-            end
-
-            part = InitParticle(species, temp, part_pos)
-            push!(species.particle_list, part)
-        end
-        
-        species.particle_grid_list = Vector{Particle}[]
-        species.particle_grid_list = Vector{Particle}[]
-        for i in range(1, system.ncells, step=1)
-            push!(species.particle_grid_list, Particle[])
+            line += 1
         end
     end
-    return species
+    return errcode
 end
 
-function InitParticle(species::Species, temp::Float64, part_pos::Float64)
-    part = Particle()
-    sigma = sqrt(temp * kb / species.mass)
 
-    part.pos = part_pos
-    part.vel = randn(Float64, 3) * sigma
+function ReadLine!(str::String, read_step::Int64,
+    species_list::Vector{Species},
+    system::System, output_list::Vector{OutputBlock},
+    constants::Vector{Tuple{SubString{String},SubString{String}}})
 
-    return part
+    errcode = c_error 
+
+    # Trimm out commets
+    i_comment = findfirst("#", str)
+    if !(i_comment === nothing)
+        i_comment = i_comment[1]
+        str = str[begin:i_comment-1]
+    end
+    str = strip(str)
+
+    # Signal wether this is a begin/end:block 
+    i_block = findfirst(":", str)
+    # Signla whether it is a "name = var" line
+    i_eq = findfirst("=", str)
+
+    # Check line
+    if !(i_block === nothing)
+        i_block = i_block[1]
+        global block_name = str[i_block+1:end]
+        if (occursin("begin", str))
+            errcode = StartBlock!(block_name, read_step, species_list,
+                system, output_list)
+            if (errcode == c_error)
+                print("***ERROR*** Something went wrong starting the ",
+                    block_name, " block\n")
+                return c_error
+            end
+        elseif (occursin("end", str))
+            errcode = EndBlock!(block_name, read_step, species_list,
+                system, output_list)
+            if (errcode == c_error)
+                print("***ERROR*** Something went wrong ending the ",
+                    block_name, " block\n")
+                return c_error
+            end
+        end
+    elseif !(i_eq === nothing)
+        i_eq = i_eq[1]
+        name = strip(str[begin:i_eq-1])
+        var = strip(str[i_eq+1:end])
+        errcode = ReadInputDeckEntry!(name, var, read_step,
+            species_list, system, output_list, constants)
+        if (errcode == c_error)
+            print("***WARNING*** Entry in ", block_name,
+                "-block has not been located\n")
+            print("  - Input entry: ", name ," = ",var ,"\n")
+        end
+    else
+        errcode = 0
+    end
+    return errcode 
 end
 
-function InitSpeciesBlock(system::System)
-    species = Species()
-    species.id = 0
-    species.name = ""
-    species.mass = -1.0
-    species.charge = 0.0
-    species.weight = -1.0
-    species.dens = zeros(Float64, system.ncells_total)
-    species.particle_list = Particle[]
-    species.particle_count = 0
-    species.is_background_gas = false
-    return species
-end
 
-function non_uniform_particle_distribution(dist, system::System)
+function StartFile!(read_step::Int64, species_list::Vector{Species},
+    system::System, output_list::Vector{OutputBlock})
 
-    # System parameters
-    dx = system.dx
-    x_min = system.x_min
-    x_max = system.x_max
-
-    # The simulation edges are trimmed because they count only half a cell each
-    x_grid = range(x_min+0.5*dx, x_max-0.5*dx, step=dx)
-
-    # Normalized spatial distribution
-    area = sum( map(dist, x_grid) ) * dx
-    dist_norm = x -> dist(x) / area * dx
-
-    # Cumulative distribution function
-    cdf = x -> sum( map(dist_norm, x_grid[1:round(Int64,(x-x_min)/dx)] ) )
-
-    # Chech that cumulative spatial distribution is always positive
-    if any(map(cdf, x_grid) .< 0)
-        print("***ERROR*** Density spatial distribution cannot have negative values\n")
+    errcode = StartFile_Species!(read_step, species_list, system) 
+    if (errcode == c_error)
+        print("***ERROR*** While initializing the input species block")
     end
 
-    return cdf
+    errcode = StartFile_System!(read_step, system) 
+    if (errcode == c_error)
+        print("***ERROR*** While initializing the input system block")
+    end
+    
+    #errcode = StartFile_Output!(read_step, output_list) 
+    #if (errcode == c_error)
+    #    print("***ERROR*** While initializing the input output block")
+    #end
+    
+    return errcode
+end
+
+
+function EndFile!(read_step::Int64, species_list::Vector{Species},
+    system::System, output_list::Vector{OutputBlock})
+
+    errcode = EndFile_Species!(read_step, species_list, system)
+    if (errcode == c_error)
+        print("***ERROR*** While initializing the input species block\n")
+        return errcode
+    end
+
+    errcode = EndFile_System!(read_step, system) 
+    if (errcode == c_error)
+        print("***ERROR*** While initializing the input system block\n")
+        return errcode
+    end
+    
+    #errcode = EndFile_Output!(read_step, output_list, species_list) 
+    #if (errcode == c_error)
+    #    print("***ERROR*** While initializing the input output block\n")
+    #    return errcode
+    #end
+    
+    return errcode
+end
+
+
+function StartBlock!(name::SubString{String}, read_step::Int64,
+    species_list::Vector{Species},
+    system::System, output_list::Vector{OutputBlock})
+
+    errcode = c_error
+    if (occursin("system",name))
+        global block_id = c_block_system
+        errcode = StartSystemBlock!(read_step, system)
+    elseif (occursin("species",name))
+        global block_id = c_block_species
+        errcode = StartSpeciesBlock!(read_step, species_list)
+    #elseif (occursin("output",name))
+    #    global block_id = b_output
+    #    errcode = StartOutputBlock!(read_step, output_list)
+    elseif (occursin("constants",name))
+        global block_id = b_constants
+        errcode = 0
+    end
+    return errcode
+end
+
+function EndBlock!(name::SubString{String}, read_step::Int64,
+    species_list::Vector{Species}, system::System,
+    output_list::Vector{OutputBlock})
+
+    errcode = c_error
+    global block_id = 0
+    if (occursin("system",name))
+        errcode = EndSystemBlock!(read_step, system)
+    elseif (occursin("species",name))
+        errcode = EndSpeciesBlock!(read_step, species_list, system)
+    #elseif (occursin("output",name))
+    #    errcode = EndOutputBlock!(read_step, output_list, system)
+    elseif (occursin("constants",name))
+        errcode = 0
+    end
+    return errcode
+end
+
+
+function ReadInputDeckEntry!(name::SubString{String}, var::SubString{String},
+    read_step::Int64, species_list::Vector{Species}, system::System,
+    output_list::Vector{OutputBlock},
+    constants::Vector{Tuple{SubString{String},SubString{String}}})
+
+    errcode = c_error 
+
+    var = CheckConstantValues!(var, constants)
+    
+    if (block_id == c_block_system)
+        errcode = ReadSystemEntry!(name, var, read_step, system)
+    elseif (block_id == c_block_species)
+        errcode = ReadSpeciesEntry!(name, var, read_step, species_list)
+    #elseif (block_id == b_output)
+    #    errcode = ReadOutputEntry!(name, var, read_step, output_list,
+    #        species_list, system)
+    elseif (block_id == b_constants)
+        push!(constants, (name,var))
+        errcode = 0
+    end
+
+    return errcode 
+end
+
+
+function CheckConstantValues!(var::SubString{String}, constants::Vector{Tuple{SubString{String},SubString{String}}})
+
+    for c in constants
+        if var == c[1]
+            var = c[2]
+            break
+        end
+    end
+
+    return var
+end
+
+function GetInputFolder!(system::System, filename::String)
+
+    index = findlast("/", filename)
+    if index === nothing
+        system.folder = "./"
+    else
+        system.folder = filename[1:index[1]]
+    end
+    system.log_file = system.folder * system.log_file
 end
 
 end

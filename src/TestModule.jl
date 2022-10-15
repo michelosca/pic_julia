@@ -4,7 +4,7 @@ using Plots
 using SharedData: Species, System
 using Constants: c_field_electric, c_field_pot, c_field_rho
 using Constants: c_bc_open
-using Constants: epsilon_0
+using Constants: epsilon_0, e, me, kb
 
 function test_species_densities(species_list::Vector{Species}, system::System)
 
@@ -18,7 +18,7 @@ function test_species_densities(species_list::Vector{Species}, system::System)
     end
     p = plot(title="Species densities")
     for s in species_list
-        if !s.is_background_gas
+        if !s.is_background_species
             plot!(p, x, s.dens[c_min:c_max], label=s.name)
         end
     end
@@ -54,13 +54,11 @@ function test_plot_field(data::Vector{Float64}, system::System, id::Int64)
             , title = "Electric potential"
         )
 
-        if system.bc_field == c_bc_open
-            pot_theory = potential_theory(x, system)
-            plot!(x, pot_theory
-                , label = "Theory"
-                , legend = :bottom
-            )
-        end
+        #pot_theory = potential_theory(x, system)
+        #plot!(x, pot_theory
+        #    , label = "Theory"
+        #    , legend = :bottom
+        #)
         png("electric_potential")
     elseif id == c_field_electric
         plot(x, data[c_min:c_max]
@@ -70,13 +68,11 @@ function test_plot_field(data::Vector{Float64}, system::System, id::Int64)
             , title = "Electric field"
         )
 
-        if system.bc_field == c_bc_open
-            ex_th = ex_theory(x, system)
-            plot!(x, ex_th
-                , label = "Theory"
-                , legend = :bottom
-            )
-        end
+        #ex_th = ex_theory(x, system)
+        #plot!(x, ex_th
+        #    , label = "Theory"
+        #    , legend = :bottom
+        #)
         png("electric_field")
     end
 end
@@ -123,6 +119,16 @@ function ex_theory(x, system::System)
     ex_theory = rho/epsilon_0 * x .- C1
 
     return ex_theory
+end
+
+function plasma_electron_frequency_cold(dens::Float64)
+    return sqrt(dens * e * e / epsilon_0 / me)
+end
+
+function plasma_electron_frequency_warm(dens::Float64, temp::Float64, k::Float64)
+    omega_e = plasma_electron_frequency_cold(dens)
+    thermal_speed = sqrt(kb * temp / me)
+    return omega_e*omega_e + 3.0 * (k * thermal_speed)^2
 end
 
 end

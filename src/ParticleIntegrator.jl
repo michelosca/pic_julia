@@ -11,7 +11,7 @@ function IntegrateParticlesPhaseSpace!(species_list::Vector{Species},
     dt = system.dt
 
     for species in species_list
-        if species.is_background_gas
+        if species.is_background_species
             continue
         end
         #print("Species ", species.name,"\n")
