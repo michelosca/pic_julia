@@ -52,7 +52,7 @@ function StartSpeciesBlock!(read_step::Int64, species_list::Vector{Species})
         species.init_dens = 0.0
         species.init_temp = 0.0
         species.is_background_species = false
-        species.init_spatial_distribution = 1
+        species.dens_spatial_distribution = 1
         push!(species_list, species)
     end
     return errcode
@@ -92,7 +92,7 @@ function ReadSpeciesEntry!(name::SubString{String}, var::SubString{String},
         if (name=="particles" || name=="total_particles")
             expr = Meta.parse(var)
             species.particle_count = Int64(eval(expr))
-            species.init_spatial_distribution = 1
+            species.dens_spatial_distribution = 1
             return 0
         end
 
@@ -107,7 +107,7 @@ function ReadSpeciesEntry!(name::SubString{String}, var::SubString{String},
         end
 
         if (name=="spatial_dist" || name=="spatial_distribution")
-            species.init_spatial_distribution = Meta.parse(var)
+            species.dens_spatial_distribution = Meta.parse(var)
             return 0
         end
 
@@ -146,6 +146,12 @@ function EndSpeciesBlock!(read_step::Int64, species_list::Vector{Species},
             PrintErrorMessage(system, err_message)
             return c_error
         end
+
+        # Normalize spatial distribution function
+        dist = species.dens_spatial_distribution
+        norm_factor = GetDistributionNormalizationFactor(dist, system)
+        norm_expr = Expr(:call,:/,dist,norm_factor)
+        species.dens_spatial_distribution = norm_expr
     end
 
     return errcode 
@@ -160,32 +166,33 @@ function EndFile_Species!(read_step::Int64, species_list::Vector{Species},
 
         # Species check
         for species in species_list
-            if (species.part_per_cell > 0) && (species.particle_count == 0)
-                species.particle_count = species.part_per_cell * (system.ncells-1)
-            end
+            if !species.is_background_species
+                if (species.part_per_cell > 0) && (species.particle_count == 0)
+                    species.particle_count = species.part_per_cell * (system.ncells-1)
+                end
 
-            if (species.part_per_cell == 0) && (species.particle_count == 0)
-                err_message = @sprintf("Number of particles for %s has not been set", species.name)
-                PrintErrorMessage(system, err_message)
-                return c_error
-            end
+                if (species.part_per_cell == 0) && (species.particle_count == 0)
+                    err_message = @sprintf("Number of particles for %s has not been set", species.name)
+                    PrintErrorMessage(system, err_message)
+                    return c_error
+                end
 
-            if species.init_dens > 0 && species.particle_count > 0
-                real_part = system.Lx * species.init_dens
-                sim_part = Float64(species.particle_count)
-                species.weight = real_part / sim_part
-            elseif species.init_dens > 0 && species.weight > 0
-                real_part = system.Lx * species.init_dens
-                species.particle_count = round(Int64, real_part / species.weight)
-            elseif species.weight > 0 && species.particle_count > 0
-                real_part = species.particle_count * species.weight
-                species.init_dens = real_part / system.Lx 
-            else
-                err_message = @sprintf("Missing declaration of particle count, density and/or particle weight for %s", species.name)
-                PrintErrorMessage(system, err_message)
-                return c_error
+                if species.init_dens > 0 && species.particle_count > 0
+                    real_part = system.Lx * species.init_dens
+                    sim_part = Float64(species.particle_count)
+                    species.weight = real_part / sim_part
+                elseif species.init_dens > 0 && species.weight > 0
+                    real_part = system.Lx * species.init_dens
+                    species.particle_count = round(Int64, real_part / species.weight)
+                elseif species.weight > 0 && species.particle_count > 0
+                    real_part = species.particle_count * species.weight
+                    species.init_dens = real_part / system.Lx 
+                else
+                    err_message = @sprintf("Missing declaration of particle count, density and/or particle weight for %s", species.name)
+                    PrintErrorMessage(system, err_message)
+                    return c_error
+                end
             end
-
         end
 
         # Load particles after all the checks required were successfull 
@@ -208,7 +215,7 @@ function LoadParticles!(species::Species, system::System)
     temp = species.init_temp
 
     # Load particle spatial distribution function
-    dist = species.init_spatial_distribution
+    dist = species.dens_spatial_distribution
 
     # Particle loading only for species that are not a background species
     if !species.is_background_species
@@ -219,39 +226,35 @@ function LoadParticles!(species::Species, system::System)
         dx = system.dx
         ncells = system.ncells
         x_grid = range(x_min, x_max, step=dx)
+        
+        # Total number of particles to be allocated
+        part_count = species.particle_count
 
-        # Spatial distribution function: normalization factor
-        norm_factor = GetDistributionNormalizationFactor(dist, system)
+        # Cumulative distribution function at x_1 = x_min
+        cdf_x_1 = GetCDF_at_x(dist, x_grid[1:1], system)
+        x_1 = x_grid[1]
 
-        # Load particles
-        for i in range(1, species.particle_count, step=1)
+        # Loop over following grid cells and calculate the particles allocated on each cell
+        species.particle_count = 0
+        for i in range(2,ncells,step=1)
+            # Get CDF on i-th position
+            cdf_x = GetCDF_at_x(dist, x_grid[1:i], system)
 
-            # Set particle's position
-            R = rand()
-            part_pos = nothing
-            x_0 = x_grid[1]
-            for j in range(2, ncells, step=1)
-                x = x_grid[j]
-                if R < GetCDF_at_x(dist, norm_factor, x_grid[1:j], system)
-                    part_pos = rand() * dx + x_0
-                    break
-                end
-                x_0 = x
+            # Particle rate is the difference between i and i-1 CDF
+            rate = cdf_x - cdf_x_1
+
+            # Particles to be allocated
+            i_part = round(Int64, part_count * rate)
+
+            # Load particles
+            for j in range(1, i_part, step=1)
+                part_pos = rand() * dx + x_1
+                AddNewParticle!(species, temp, part_pos)
             end
-
-            if part_pos === nothing
-                PrintErrorMessage(system, "Particle has not been located in space")
-                return c_error
-            elseif part_pos > x_max
-                PrintErrorMessage("Particle loaded at position > x_max")
-                return c_error
-            elseif part_pos < x_min
-                PrintErrorMessage("Particle loaded at position < x_min")
-                return c_error
-            end
-
-            part = InitParticle(species, temp, part_pos)
-            push!(species.particle_list, part)
+            
+            # Set CDF at i-1 for next iteration
+            cdf_x_1 = cdf_x
+            x_1 = x_grid[i]
         end
         
         species.particle_grid_list = Vector{Particle}[]
@@ -264,14 +267,13 @@ function LoadParticles!(species::Species, system::System)
     return errcode
 end
 
-function GetCDF_at_x(dist::Union{Int64, Float64, Expr}, norm::Float64,
+function GetCDF_at_x(dist::Union{Int64, Float64, Expr},
     x_grid_range::StepRangeLen{Float64}, system::System)
 
-    s = 0.0
+    cdf_x = 0.0
     for x in x_grid_range[1:end-1]
-        s += ReplaceExpressionValues(dist, system, x)
+        cdf_x += ReplaceExpressionValues(dist, system, x)
     end
-    cdf_x = s/norm
 
     return cdf_x
 end
@@ -294,14 +296,18 @@ function GetDistributionNormalizationFactor(dist::Union{Int64, Float64, Expr}, s
     return s
 end
 
-function InitParticle(species::Species, temp::Float64, part_pos::Float64)
+function AddNewParticle!(species::Species, temp::Float64, part_pos::Float64)
+
     part = Particle()
     sigma = sqrt(temp * kb / species.mass)
 
     part.pos = part_pos
     part.vel = randn(Float64, 3) * sigma
 
-    return part
+    push!(species.particle_list, part)
+    species.particle_count += 1
+
+    return 0 
 end
 
 end

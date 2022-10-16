@@ -18,12 +18,14 @@
 module Inputs
 
 using Constants: c_error
-using Constants: c_block_system, c_block_species
+using Constants: c_block_system, c_block_species, c_block_output, c_block_constants
 using SharedData: Species, System, OutputBlock
 using InputBlock_System: StartFile_System!, StartSystemBlock!
 using InputBlock_System: ReadSystemEntry!, EndSystemBlock!, EndFile_System!
 using InputBlock_Species: StartFile_Species!, StartSpeciesBlock!
 using InputBlock_Species: ReadSpeciesEntry!, EndSpeciesBlock!, EndFile_Species!
+using InputBlock_Output: StartFile_Output!, StartOutputBlock!
+using InputBlock_Output: ReadOutputEntry!, EndOutputBlock!, EndFile_Output!
 
 # The input deck is read twice
 # 1ST READ
@@ -35,6 +37,11 @@ using InputBlock_Species: ReadSpeciesEntry!, EndSpeciesBlock!, EndFile_Species!
 ## -> Read SPECIES blocks and parameters: names, id, mass, part.count, etc.
 ##    - Species parameters are check at  EndFile_Species, therefore species
 ##    data should be fully available for the second read
+
+# 2ND READ
+## -> TIME STEP CONDITIONS at SYSTEM are set at StartFile_System
+## -> Read OUTPUT parameters: when system and species data is already available
+##    - All output parameters are defined at the end of each block
 
 # INPUT BLOCK IDs
 global block_id = 0
@@ -161,10 +168,10 @@ function StartFile!(read_step::Int64, species_list::Vector{Species},
         print("***ERROR*** While initializing the input system block")
     end
     
-    #errcode = StartFile_Output!(read_step, output_list) 
-    #if (errcode == c_error)
-    #    print("***ERROR*** While initializing the input output block")
-    #end
+    errcode = StartFile_Output!(read_step, output_list, system) 
+    if (errcode == c_error)
+        print("***ERROR*** While initializing the input output block")
+    end
     
     return errcode
 end
@@ -185,11 +192,11 @@ function EndFile!(read_step::Int64, species_list::Vector{Species},
         return errcode
     end
     
-    #errcode = EndFile_Output!(read_step, output_list, species_list) 
-    #if (errcode == c_error)
-    #    print("***ERROR*** While initializing the input output block\n")
-    #    return errcode
-    #end
+    errcode = EndFile_Output!(read_step, output_list, system) 
+    if (errcode == c_error)
+        print("***ERROR*** While initializing the input output block\n")
+        return errcode
+    end
     
     return errcode
 end
@@ -206,11 +213,11 @@ function StartBlock!(name::SubString{String}, read_step::Int64,
     elseif (occursin("species",name))
         global block_id = c_block_species
         errcode = StartSpeciesBlock!(read_step, species_list)
-    #elseif (occursin("output",name))
-    #    global block_id = b_output
-    #    errcode = StartOutputBlock!(read_step, output_list)
+    elseif (occursin("output",name))
+        global block_id = c_block_output
+        errcode = StartOutputBlock!(read_step, output_list, system)
     elseif (occursin("constants",name))
-        global block_id = b_constants
+        global block_id = c_block_constants
         errcode = 0
     end
     return errcode
@@ -226,8 +233,8 @@ function EndBlock!(name::SubString{String}, read_step::Int64,
         errcode = EndSystemBlock!(read_step, system)
     elseif (occursin("species",name))
         errcode = EndSpeciesBlock!(read_step, species_list, system)
-    #elseif (occursin("output",name))
-    #    errcode = EndOutputBlock!(read_step, output_list, system)
+    elseif (occursin("output",name))
+        errcode = EndOutputBlock!(read_step, output_list, system)
     elseif (occursin("constants",name))
         errcode = 0
     end
@@ -248,10 +255,10 @@ function ReadInputDeckEntry!(name::SubString{String}, var::SubString{String},
         errcode = ReadSystemEntry!(name, var, read_step, system)
     elseif (block_id == c_block_species)
         errcode = ReadSpeciesEntry!(name, var, read_step, species_list)
-    #elseif (block_id == b_output)
-    #    errcode = ReadOutputEntry!(name, var, read_step, output_list,
-    #        species_list, system)
-    elseif (block_id == b_constants)
+    elseif (block_id == c_block_output)
+        errcode = ReadOutputEntry!(name, var, read_step, output_list,
+            species_list, system)
+    elseif (block_id == c_block_constants)
         push!(constants, (name,var))
         errcode = 0
     end
@@ -260,7 +267,8 @@ function ReadInputDeckEntry!(name::SubString{String}, var::SubString{String},
 end
 
 
-function CheckConstantValues!(var::SubString{String}, constants::Vector{Tuple{SubString{String},SubString{String}}})
+function CheckConstantValues!(var::SubString{String},
+    constants::Vector{Tuple{SubString{String},SubString{String}}})
 
     for c in constants
         if var == c[1]

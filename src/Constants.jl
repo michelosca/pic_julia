@@ -25,4 +25,21 @@ const c_field_pot = 303
 const c_block_system = 400
 const c_block_species = 401
 const c_block_output = 402
+const c_block_constants = 403
+
+const c_o_all_species = 500
+const c_o_none_species = 501
+const c_o_phase_space = 502
+const c_o_density = 503
+const c_o_potential = 504
+const c_o_electric_field = 505
+const c_o_magnetic_field = 506
+const c_o_neutral_collisions = 507
+const c_o_probe = 508
+
+const c_dir_none = 600
+const c_dir_x = 601
+const c_dir_y = 602
+const c_dir_z = 603
+
 end

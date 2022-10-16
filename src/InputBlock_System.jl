@@ -1,26 +1,26 @@
 # Copyright (C) 2021 Michel Osca Engelbrecht
 #
-# This file is part of GM Julia.
+# This file is part of PIC Julia.
 #
-# GM Julia is free software: you can redistribute it and/or modify
+# PIC Julia is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# GM Julia is distributed in the hope that it will be useful,
+# PIC Julia is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with GM Julia. If not, see <https://www.gnu.org/licenses/>.
+# along with PIC Julia. If not, see <https://www.gnu.org/licenses/>.
 
 module InputBlock_System
 
 using Constants: c_error
 using Constants: gc_triangle
 using Constants: c_bc_open, c_bc_periodic
-using SharedData: Species, System, OutputBlock
+using SharedData: System
 using Tools: GetUnits!
 using Dates
 using PrintModule: PrintErrorMessage
@@ -28,7 +28,25 @@ using PrintModule: PrintErrorMessage
 
 function StartFile_System!(read_step::Int64, system::System) 
 
-    errcode = 0
+    errcode = c_error
+    
+    if read_step == 1
+        errcode = 0
+    elseif read_step == 2
+
+        # At this point species are already defined and time-step conditions can be set
+
+        if system.dt <= 0
+            PrintErrorMessage(system, "Simulation time step must be > 0")
+            errcode = c_error
+            return errcode 
+        end
+        
+        system.step_start = round(Int64, (system.t_start)/system.dt)
+        system.step_end = round(Int64, (system.t_end)/system.dt) - system.step_start
+        system.step = system.step_start
+        errcode = 0
+    end
 
     return errcode
 end
@@ -54,7 +72,8 @@ function StartSystemBlock!(read_step::Int64, system::System)
         system.time = 0.0 #system.t_start
         system.dt = 0.0 #1.e-10
         system.step = 0
-        system.step_end = 0 #floor(Int64, (system.t_end-system.t_start)/system.dt)
+        system.step_start = 0
+        system.step_end = 0
     
         system.V0_min = 0.0
         system.V0_max = 0.0 #1.0
@@ -171,7 +190,7 @@ function ReadSystemEntry!(name::SubString{String}, var::SubString{String},
             system.step_end = parse(Int64, var)
             errcode = 0
         end
-    else
+    elseif read_step == 2
         errcode = 0
     end
     return errcode 
@@ -183,6 +202,8 @@ function EndSystemBlock!(read_step::Int64, system::System)
     errcode = 0
 
     if read_step == 1
+
+        ### Spatial check
         system.Lx = system.x_max - system.x_min 
         if system.Lx <= 0.0
             PrintErrorMessage(system, "Simulation domain length must be > 0")
@@ -209,22 +230,19 @@ function EndSystemBlock!(read_step::Int64, system::System)
             system.ncells_total = system.ncells + 2*system.gc
         end
 
-        if system.t_end < 0
-            PrintErrorMessage(system, "Simulation time must be > 0")
-            errcode = c_error
-            return errcode 
-        end
-            
-        if system.dt <= 0
-            PrintErrorMessage(system, "Simulation time step must be > 0")
-            errcode = c_error
-            return errcode 
-        end
-        
-        system.step_end = floor(Int64, (system.t_end-system.t_start)/system.dt)
         system.ncells_total = system.ncells + system.gc * 2
         system.cell_min = system.gc + 1
         system.cell_max = system.ncells + system.gc
+
+        ### Temporal check
+        if system.t_end <= system.t_start
+            PrintErrorMessage(system, "Simulation times must be t_end > t_start")
+            errcode = c_error
+            return errcode
+        end
+
+        system.time = system.t_start
+
     end
 
     return errcode
@@ -232,7 +250,9 @@ end
     
 
 function EndFile_System!(read_step::Int64, system::System)
-    errcode = 0
+
+    errcode = 0 
+
     return errcode
 end
 

@@ -25,7 +25,7 @@ mutable struct Species
     is_background_species::Bool
     init_temp::Float64
     init_dens::Float64
-    init_spatial_distribution::Union{Int64, Float64, Expr}
+    dens_spatial_distribution::Union{Int64, Float64, Expr}
 
     Species() = new()
 end
@@ -38,6 +38,7 @@ mutable struct System
     t_end::Float64
     
     step::Int64
+    step_start::Int64
     step_end::Int64
     
     ncells::Int64
@@ -75,18 +76,50 @@ mutable struct Field
     Field() = new()
 end
 
+mutable struct OutputDataStruct
+
+    id::Int64
+    name::String
+
+    species_id::Int64
+    species_name::String
+
+    dir_id::Int64
+
+    data::Array{Float64,}
+
+    OutputDataStruct() = new()
+end
+
 mutable struct OutputBlock
     
+    name::String
+
     t_start::Float64
     t_end::Float64
     dt::Float64
-
-    parameter_id::Int64
+    step_start::Int64
+    step_end::Int64
+    step_jump::Int64
 
     averaged::Bool
     dt_av::Float64
+    step_av::Int64
+
+    param_list::Vector{OutputDataStruct}
+
+    file_id::Int64
+    zero_pad::Int64
+    time_dump::Float64
+    step_dump::Int64
+    time_av_start::Int64
+    time_av_end::Int64
+    step_av_start::Int64
+    step_av_end::Int64
+
 
     OutputBlock() = new()
+
 end
 
 end
