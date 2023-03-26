@@ -20,13 +20,13 @@ module InputBlock_System
 using Constants: c_error
 using Constants: gc_triangle
 using Constants: c_bc_open, c_bc_periodic
-using SharedData: System
+using SharedData: System, Species
 using Tools: GetUnits!
 using Dates
 using PrintModule: PrintErrorMessage
 
 
-function StartFile_System!(read_step::Int64, system::System) 
+function StartFile_System!(read_step::Int64, species_list::Vector{Species}, system::System) 
 
     errcode = c_error
     
@@ -35,16 +35,17 @@ function StartFile_System!(read_step::Int64, system::System)
     elseif read_step == 2
 
         # At this point species are already defined and time-step conditions can be set
-
-        if system.dt <= 0
-            PrintErrorMessage(system, "Simulation time step must be > 0")
+        errcode = SetTimeStep!(system, species_list)
+        if errcode == c_error
+            PrintErrorMessage(system, "Setting up time step")
             errcode = c_error
             return errcode 
         end
-        
+
         system.step_start = round(Int64, (system.t_start)/system.dt)
         system.step_end = round(Int64, (system.t_end)/system.dt) - system.step_start
         system.step = system.step_start
+
         errcode = 0
     end
 
@@ -256,5 +257,8 @@ function EndFile_System!(read_step::Int64, system::System)
     return errcode
 end
 
+function SetTimeStep!(system::System, species_list::Vector{Species})
+    return 0
+end
 
 end

@@ -72,6 +72,9 @@ mutable struct Field
     x::Vector{Float64}
     y::Vector{Float64}
     z::Vector{Float64}
+    bc_min::Int64
+    bc_max::Int64
+
 
     Field() = new()
 end

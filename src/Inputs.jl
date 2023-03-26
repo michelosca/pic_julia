@@ -37,6 +37,9 @@ using InputBlock_Output: ReadOutputEntry!, EndOutputBlock!, EndFile_Output!
 ## -> Read SPECIES blocks and parameters: names, id, mass, part.count, etc.
 ##    - Species parameters are check at  EndFile_Species, therefore species
 ##    data should be fully available for the second read
+## -> Read ELECTRIC/MAGNETIC FIELDS and ELECTRIC POTENTIAL.
+##    - The data is not spatially allocated (this could be done at 2nd read) but parameters
+##      describing the fields, e.g. magnitude values, etc. are ready to use at 2nd read
 
 # 2ND READ
 ## -> TIME STEP CONDITIONS at SYSTEM are set at StartFile_System
@@ -163,7 +166,7 @@ function StartFile!(read_step::Int64, species_list::Vector{Species},
         print("***ERROR*** While initializing the input species block")
     end
 
-    errcode = StartFile_System!(read_step, system) 
+    errcode = StartFile_System!(read_step, species_list, system) 
     if (errcode == c_error)
         print("***ERROR*** While initializing the input system block")
     end

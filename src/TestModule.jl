@@ -1,6 +1,9 @@
 module TestModule
 
 using Plots
+using HDF5
+using Printf
+
 using SharedData: Species, System
 using Constants: c_field_electric, c_field_pot, c_field_rho
 using Constants: c_bc_open
@@ -130,5 +133,76 @@ function plasma_electron_frequency_warm(dens::Float64, temp::Float64, k::Float64
     thermal_speed = sqrt(kb * temp / me)
     return omega_e*omega_e + 3.0 * (k * thermal_speed)^2
 end
+
+
+function debye_length(dens::Float64, temp_eV::Union{Int64, Float64})
+    charge2 = e * e
+    eV_to_K = e/kb
+    temp_K = temp_eV * eV_to_K
+    return sqrt(epsilon_0 * kb * temp_K / dens / charge2)
+end
+
+
+function ColdLangmuirOscillationTest()
+
+    for i in 0:50
+        filename = @sprintf("stdout%05i.h5",i)
+        h5open("sim/"* filename,"r") do fid
+            system = read(fid, "System")
+            x = system["Grid"]
+
+            # Plot plasma potential
+            ### Simulation rasults
+            pot_struct = read(fid, "Electric_Potential")
+            pot = pot_struct["Vx"]
+            p = plot(x,pot
+                , frame = :box
+                , linewidth = 2
+                , xlabel = "Position / m"
+                , ylabel = "Plasma potential / V"
+                , ylims = (-1,1)
+                , xlims = (x[1], x[end])
+                , legend = false
+            )
+            ### Theory results
+            wavelength = 0.1
+            k = 2*pi/wavelength
+            n0 = 1.e12
+            dens_amp = 0.1 * n0
+            rho_amp = dens_amp * e
+            pot_amp = - rho_amp / epsilon_0 / k / k
+            omega_e = plasma_electron_frequency_cold(n0)
+            system = fid["System"]
+            time = attrs(system)["time"]
+            pot_theory = map(x -> pot_amp * sin.(k * x) .* cos(omega_e * time), x)
+            plot!(p, x, pot_theory
+                , linewidth = 2
+                , linestyle = :dot
+            )
+            fig_name = @sprintf("potential_%05i.png",i)
+            savefig(p, "sim/pot/"*fig_name)
+
+            # Plot densities
+            dens_struct = read(fid, "Number_Density")
+            p = plot(
+                frame = :box
+                , xlabel = "Position / m"
+                , ylabel = "Number density / m^{-3}"
+                , ylims = (0.75e12,1.25e12)
+                , xlims = (x[1], x[end])
+                , legend = true 
+            )
+            for (species, dens) in dens_struct
+                plot!(p, x, dens
+                    , linewidth = 2
+                    , label = species
+                )
+            end
+            fig_name = @sprintf("dens_%05i.png",i)
+            savefig(p, "sim/dens/"*fig_name)
+        end
+    end
+end
+
 
 end

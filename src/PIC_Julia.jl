@@ -39,11 +39,11 @@ function run_pic(input_file::String)
     #
 
     # 02 - Initialize fields: densities, charge densities, potential, E/B-fields
-    # 1.- Get charge density
+    ### 1.- Get charge density
     charge_density = GetTotalChargeDensity(species_list, system) 
-    # 2.- Calculate electric potential
+    ### 2.- Calculate electric potential
     electric_potential = GetElectricPotential(charge_density, system)
-    # 3.- Calculate electric field
+    ### 3.- Calculate electric field
     charge_dens_min = charge_density[system.cell_min]
     charge_dens_max = charge_density[system.cell_max]
     UpdateElectricField!(electric_field, electric_potential, charge_dens_min,
