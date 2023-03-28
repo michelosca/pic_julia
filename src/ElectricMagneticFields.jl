@@ -154,13 +154,16 @@ function GetPotential_boundaries(waveform_list::Vector{Waveform}, system::System
     V0_min = 0.0
     V0_max = 0.0
 
+    time = system.time
     for (i, waveform) in enumerate(waveform_list)
-        if waveform.boundary == c_bc_x_min
-            V0_min += ReplaceExpressionValues(waveform.wavefunction, system,
-                waveform=waveform) * waveform.amp
-        elseif waveform.boundary == c_bc_x_max
-            V0_max += ReplaceExpressionValues(waveform.wavefunction, system,
-                waveform=waveform) * waveform.amp
+        if waveform.t_start <= time && waveform.t_end >= time
+            if waveform.boundary == c_bc_x_min
+                V0_min += ReplaceExpressionValues(waveform.wavefunction, system,
+                    waveform=waveform) * waveform.amp
+            elseif waveform.boundary == c_bc_x_max
+                V0_max += ReplaceExpressionValues(waveform.wavefunction, system,
+                    waveform=waveform) * waveform.amp
+            end
         end
     end
     return V0_min, V0_max

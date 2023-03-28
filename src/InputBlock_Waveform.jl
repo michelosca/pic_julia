@@ -48,7 +48,7 @@ function StartWaveformBlock!(read_step::Int64, waveform_list::Vector{Waveform},
     if (read_step == 1)
         errcode = 0
     elseif read_step == 2
-        waveform = InitWaveform()
+        waveform = InitWaveform(system)
         push!(waveform_list, waveform)
         errcode = 0
     end
@@ -133,15 +133,15 @@ function EndFile_Waveform!(read_step::Int64, waveform_list::Vector{Waveform},
 end
 
 
-function InitWaveform()
+function InitWaveform(system::System)
 
     waveform = Waveform()
     waveform.amp = 0.0
     waveform.freq = 0.0
     waveform.wavefunction = 1.0
     waveform.boundary = c_error
-    waveform.t_start = 0.0
-    waveform.t_end = 0.0
+    waveform.t_start = system.t_start
+    waveform.t_end = system.t_end
 
     return waveform
 end
