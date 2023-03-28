@@ -57,9 +57,6 @@ mutable struct System
     bc_part_min::Int64
     bc_part_max::Int64
 
-    V0_min::Float64
-    V0_max::Float64
-
     folder::String
     log_file::String
 
@@ -123,6 +120,18 @@ mutable struct OutputBlock
 
     OutputBlock() = new()
 
+end
+
+mutable struct Waveform
+
+    amp::Float64
+    freq::Float64
+    wavefunction::Union{Int64, Float64, Expr}
+    boundary::Int64
+    t_start::Float64
+    t_end::Float64
+
+    Waveform() = new()
 end
 
 end

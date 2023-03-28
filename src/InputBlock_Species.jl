@@ -272,7 +272,7 @@ function GetCDF_at_x(dist::Union{Int64, Float64, Expr},
 
     cdf_x = 0.0
     for x in x_grid_range[1:end-1]
-        cdf_x += ReplaceExpressionValues(dist, system, x)
+        cdf_x += ReplaceExpressionValues(dist, system, pos=x)
     end
 
     return cdf_x
@@ -290,7 +290,7 @@ function GetDistributionNormalizationFactor(dist::Union{Int64, Float64, Expr}, s
     # The simulation edges are trimmed because they count only half a cell each
     s = 0.0
     for x in range(x_min, x_max, step=dx)
-        s += ReplaceExpressionValues(dist, system, x)
+        s += ReplaceExpressionValues(dist, system, pos=x)
     end
 
     return s

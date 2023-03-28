@@ -9,6 +9,7 @@ using Constants: c_dir_x, c_dir_y, c_dir_z
 using Constants: c_bc_open, c_bc_periodic
 using SharedData: System, Field, Species
 using SharedData: OutputBlock, OutputDataStruct
+using PrintModule: PrintErrorMessage
 
 function GenerateOutputs!(output_list::Vector{OutputBlock},
     species_list::Vector{Species}, system::System, electric_potential::Vector{Float64},

@@ -1,9 +1,11 @@
 module Tools
 
 using SharedData: Species, System, Field
+using Constants: c_error
 using Constants: c_bc_open, c_bc_periodic
 using Constants: c_stag_centre, c_stag_right
 using Constants: c_field_magnetic, c_field_electric
+using Constants: c_bc_x_min, c_bc_x_max
 using Constants: K_to_eV
 
 function InterpolateParticleToGrid!(field::Vector{Float64}, part_pos::Float64, system::System)
@@ -167,6 +169,18 @@ function GetUnits!(var::Union{String,SubString{String}})
         end
     end
     return units_fact, var
+end
+
+
+function parse_boundary(var::Union{String,SubString{String}})
+
+    bc_id = c_error
+    if var == "x_min" || var == "left"
+        bc_id = c_bc_x_min
+    elseif var == "x_max" || var == "right"
+        bc_id = c_bc_x_max
+    end
+    return bc_id
 end
 
 end

@@ -1,17 +1,19 @@
 module ElectricMagneticFields
 
-using SharedData: System, Species, Field
+using SharedData: System, Species, Field, Waveform
 using Constants: epsilon_0
 using Constants: c_field_electric, c_field_magnetic
 using Constants: c_bc_periodic, c_bc_open
+using Constants: c_bc_x_min, c_bc_x_max
 using SparseArrays: sparse
 using LinearSolve: solve, LinearProblem
+using EvaluateExpressions: ReplaceExpressionValues
 
 
-function GetElectricPotential(charge_density::Vector{Float64}, system::System)
+function GetElectricPotential(charge_density::Vector{Float64},
+    waveform_list::Vector{Waveform}, system::System)
 
-    V0_min = system.V0_min
-    V0_max = system.V0_max
+    V0_min, V0_max = GetPotential_boundaries(waveform_list, system)
     dx = system.dx
     ncells = system.ncells - 2
     cell_start = system.cell_min + 1
@@ -145,6 +147,23 @@ function InitializeMagneticField(system::System)
     magnetic_field.y = zeros(Float64, system.ncells_total)
     magnetic_field.z = zeros(Float64, system.ncells_total)
     return magnetic_field 
+end
+
+function GetPotential_boundaries(waveform_list::Vector{Waveform}, system::System)
+
+    V0_min = 0.0
+    V0_max = 0.0
+
+    for (i, waveform) in enumerate(waveform_list)
+        if waveform.boundary == c_bc_x_min
+            V0_min += ReplaceExpressionValues(waveform.wavefunction, system,
+                waveform=waveform) * waveform.amp
+        elseif waveform.boundary == c_bc_x_max
+            V0_max += ReplaceExpressionValues(waveform.wavefunction, system,
+                waveform=waveform) * waveform.amp
+        end
+    end
+    return V0_min, V0_max
 end
 
 end

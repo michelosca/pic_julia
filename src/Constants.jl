@@ -13,6 +13,8 @@ const c_error = 1
 
 const c_bc_periodic = 100
 const c_bc_open = 101
+const c_bc_x_min = 102
+const c_bc_x_max = 103
 
 const c_stag_centre = 200 
 const c_stag_right = 201
@@ -26,6 +28,7 @@ const c_block_system = 400
 const c_block_species = 401
 const c_block_output = 402
 const c_block_constants = 403
+const c_block_waveform = 404
 
 const c_o_all_species = 500
 const c_o_none_species = 501

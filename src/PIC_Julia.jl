@@ -1,6 +1,6 @@
 module PIC_Julia 
 
-using SharedData: System, Species, OutputBlock
+using SharedData: System, Species, OutputBlock, Waveform
 using Inputs: SetupInputData!
 using GridData: GetTotalChargeDensity
 using ElectricMagneticFields: UpdateElectricField!, GetElectricPotential
@@ -25,8 +25,11 @@ function run_pic(input_file::String)
     # Initialize species data list
     species_list = Species[]
 
+    # Initialize waveform list
+    waveform_list = Waveform[]
+
     errcode = SetupInputData!(input_file::String, species_list::Vector{Species}, 
-        system::System, output_list::Vector{OutputBlock})
+        system::System, output_list::Vector{OutputBlock}, waveform_list::Vector{Waveform})
     if errcode == c_error
         return c_error
     end
@@ -42,7 +45,7 @@ function run_pic(input_file::String)
     ### 1.- Get charge density
     charge_density = GetTotalChargeDensity(species_list, system) 
     ### 2.- Calculate electric potential
-    electric_potential = GetElectricPotential(charge_density, system)
+    electric_potential = GetElectricPotential(charge_density, waveform_list, system)
     ### 3.- Calculate electric field
     charge_dens_min = charge_density[system.cell_min]
     charge_dens_max = charge_density[system.cell_max]
@@ -58,7 +61,7 @@ function run_pic(input_file::String)
         charge_density = GetTotalChargeDensity(species_list, system) 
 
         # 2.- Calculate electric potential
-        electric_potential = GetElectricPotential(charge_density, system)
+        electric_potential = GetElectricPotential(charge_density, waveform_list, system)
 
         # 3.- Calculate electric field
         charge_dens_min = charge_density[system.cell_min]

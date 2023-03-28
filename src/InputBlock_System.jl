@@ -76,9 +76,6 @@ function StartSystemBlock!(read_step::Int64, system::System)
         system.step_start = 0
         system.step_end = 0
     
-        system.V0_min = 0.0
-        system.V0_max = 0.0 #1.0
-    
         system.bc_field_min = -1 #c_bc_periodic #open #
         system.bc_field_max = -1 #c_bc_periodic #open #
         system.bc_part_min = -1 #c_bc_periodic #open #

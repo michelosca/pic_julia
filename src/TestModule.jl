@@ -205,4 +205,36 @@ function ColdLangmuirOscillationTest()
 end
 
 
+function RF_potential_wave()
+
+    for i in 0:100
+        filename = @sprintf("stdout%05i.h5",i)
+        h5open("sim/"* filename,"r") do fid
+            system = read(fid, "System")
+            x = system["Grid"]
+
+            # Plot plasma potential
+            ### Simulation rasults
+            pot_struct = read(fid, "Electric_Potential")
+            pot = pot_struct["Vx"]
+            p = plot(x,pot
+                , frame = :box
+                , linewidth = 2
+                , xlabel = "Position / m"
+                , ylabel = "Plasma potential / V"
+                , ylims = (-110,110)
+                , xlims = (x[1], x[end])
+                , legend = false
+            )
+
+            # Analytic solution
+            system = fid["System"]
+            time = attrs(system)["time"]
+            an_pot = 100.0 * sin(2*pi*13.56e6*time) 
+            plot!(p, [x[1], x[end]], [an_pot, an_pot])
+            fig_name = @sprintf("potential_%05i.png",i)
+            savefig(p, "sim/pot/"*fig_name)
+        end
+    end
+end
 end

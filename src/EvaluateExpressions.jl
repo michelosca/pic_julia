@@ -18,14 +18,14 @@
 module EvaluateExpressions
 
 using Constants: e, amu, kb, epsilon_0, me
-using SharedData: System
+using SharedData: System, Waveform
 
-function ReplaceExpressionValues(expr::Union{Int64, Float64, Expr}, system::System,
-    pos::Float64)
+function ReplaceExpressionValues(expr::Union{Int64, Float64, Expr},
+    system::System; pos::Float64 = 0.0, waveform::Waveform=Waveform())
 
     copy_expr = copy(expr)
     if typeof(copy_expr)==Expr
-        ReplaceSymbolValues!(copy_expr, system, pos)
+        ReplaceSymbolValues!(copy_expr, system, pos, waveform)
     end
 
     value = eval(copy_expr)
@@ -33,7 +33,8 @@ function ReplaceExpressionValues(expr::Union{Int64, Float64, Expr}, system::Syst
 end
 
 
-function ReplaceSymbolValues!(expr::Expr, system::System, pos_x::Float64)
+function ReplaceSymbolValues!(expr::Expr, system::System, pos_x::Float64,
+    waveform::Waveform)
 
     # system parameters
     ReplaceSystemValues!(expr, system)
@@ -43,6 +44,9 @@ function ReplaceSymbolValues!(expr::Expr, system::System, pos_x::Float64)
 
     # Replace position value
     ReplaceSymbol!(expr, :x, pos_x)
+
+    # Replace waveform value
+    ReplaceWaveformValues!(expr, waveform)
 
 end
 
@@ -80,6 +84,12 @@ function ReplaceSymbol!(expression::Expr, old, new)
             expression.args[i] = new
         end
     end
+end
+
+
+function ReplaceWaveformValues!(expr::Expr, waveform::Waveform)
+    # System parameters
+    ReplaceSymbol!(expr, :f, waveform.freq)
 end
 
 end
