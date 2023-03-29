@@ -6,8 +6,8 @@ using GridData: GetTotalChargeDensity
 using ElectricMagneticFields: UpdateElectricField!, GetElectricPotential
 using ElectricMagneticFields: InitializeElectricField, InitializeMagneticField
 using ParticleIntegrator: IntegrateParticlesPhaseSpace!
-#using Tools: RealocateParticlesToGridList!
-#using Tools: RealocateParticlesToMainList!
+using Tools: RealocateParticlesToGridList!
+using Tools: RealocateParticlesToMainList!
 using Outputs: GenerateOutputs! 
 
 using TestModule: test_species_densities, test_plot_field
@@ -56,7 +56,8 @@ function run_pic(input_file::String)
     # 03.- Output initial conditions
     GenerateOutputs!(output_list, species_list, system, electric_potential, electric_field)
 
-    while system.step <= system.step_end
+    while system.step < system.step_end
+
         # 1.- Get charge density
         charge_density = GetTotalChargeDensity(species_list, system) 
 
@@ -78,13 +79,13 @@ function run_pic(input_file::String)
         # -> particle BC applied while integrating Phase-Space 
 
         # 6.- Collisions: 6.1.- gather particles in cells
-        #RealocateParticlesToGridList!(species_list)
+        RealocateParticlesToGridList!(species_list, system)
         #for species in species_list
         #    print(species.name, " secondary list ", length(species.particle_grid_list),"\n")
         #end
         #                 6.2.- collider
         #                 6.3.- 
-        #RealocateParticlesToMainList!(species_list)
+        RealocateParticlesToMainList!(species_list)
 
         # 6.- Update time
         system.time += system.dt

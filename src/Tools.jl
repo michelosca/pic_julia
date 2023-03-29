@@ -7,6 +7,7 @@ using Constants: c_stag_centre, c_stag_right
 using Constants: c_field_magnetic, c_field_electric
 using Constants: c_bc_x_min, c_bc_x_max
 using Constants: K_to_eV
+using PrintModule: PrintWarningMessage
 
 function InterpolateParticleToGrid!(field::Vector{Float64}, part_pos::Float64, system::System)
 
@@ -88,37 +89,34 @@ function ParticleToGrid(part_pos::Float64, system::System, stagger::Int64)
     return cell_x, gx
 end
 
-function RealocateParticlesToGridList(species_list::Vector{Species})
+function RealocateParticlesToGridList!(species_list::Vector{Species}, system::System)
     x_min = system.x_min
     dx = system.dx
     ncells = system.ncells
     for species in species_list
         for i in range(1,ncells,step=1)
-            grid_min = (i - 0.5)*dx + x_min
-            grid_max = (i + 0.5)*dx + x_min 
+
+            # -1.5/0.5 substraction because i needs a -1 shift
+            grid_min = (i - 1.5)*dx + x_min
+            grid_max = (i - 0.5)*dx + x_min 
             indexes = findall(
                 x -> (x.pos >= grid_min) & (x.pos <= grid_max),
                 species.particle_list)
             species.particle_grid_list[i] = splice!(species.particle_list, indexes)
         end
-    end
-    # Check that main particle list is empty
-    if length(species.particle_list) > 0
-        print("***WARNING*** Main particle list of ",species.name," is not empty\n")
+
+        # Check that main particle list is empty
+        if length(species.particle_list) > 0
+            message = "Main particle list of " * species.name * " is not empty"
+            PrintWarningMessage(system, message)
+        end
     end
 end
 
-function RealocateParticlesToMainList(species_list::Vector{Species})
+function RealocateParticlesToMainList!(species_list::Vector{Species})
 
     for species in species_list
-        # Check that main particle list is empty
-        if length(species.particle_list) > 0
-            print("***WARNING*** Main particle list of ",species.name," is not empty\n")
-        end
-
-        for part_list in species.particle_grid_list
-            push!(species.particle_list, part_list)
-        end
+        species.particle_list = reduce(vcat, species.particle_grid_list)
     end
 end
 
