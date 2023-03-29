@@ -23,7 +23,7 @@ using SharedData: Species, System, Particle
 using Tools: GetUnits!
 using Printf: @sprintf
 using EvaluateExpressions: ReplaceExpressionValues
-using PrintModule: PrintErrorMessage
+using PrintModule: PrintErrorMessage, PrintWarningMessage
 
 
 function StartFile_Species!(read_step::Int64, species_list::Vector{Species},
@@ -60,7 +60,7 @@ function StartSpeciesBlock!(read_step::Int64, species_list::Vector{Species})
 end
 
 function ReadSpeciesEntry!(name::SubString{String}, var::SubString{String},
-    read_step::Int64, species_list::Vector{Species})
+    read_step::Int64, species_list::Vector{Species}, system::System)
 
     errcode = c_error 
 
@@ -69,7 +69,7 @@ function ReadSpeciesEntry!(name::SubString{String}, var::SubString{String},
         species = species_list[end]
 
         if (name=="name")
-            species.name = var
+            species.name = strip(var)
             return 0
         end
 
@@ -103,6 +103,10 @@ function ReadSpeciesEntry!(name::SubString{String}, var::SubString{String},
         end
 
         if (name=="init_temp" || name=="T" || name=="temp")
+            if units == e
+                message = @sprintf("Be careful! Temperature in eV must be defined like 'temp_TeV' instead of 'temp_eV' as the latter refers to energy units")
+                PrintWarningMessage(system, message)
+            end
             species.init_temp = parse(Float64, var) * units 
             return 0
         end

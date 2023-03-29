@@ -17,7 +17,8 @@
 
 module PrintModule
 
-using SharedData: System, Species
+using SharedData: System, Species, Collision
+using Constants: e
 using Printf
 
 
@@ -40,9 +41,9 @@ end
 function PrintMessage(system::System, message::String)
 
     open(system.log_file,"a") do file
-        @printf(file, "%s", message)
+        @printf(file, "%s\n", message)
     end
-    @printf("%s", message)
+    @printf("%s\n", message)
 end
 
 function PrintSpecies(species::Species)
@@ -53,6 +54,43 @@ function PrintSpecies(species::Species)
     @printf("  - part. weight: %g\n", species.weight)
     @printf("  - particle count: %i\n", species.particle_count)
     @printf("  - is background: %s\n", species.is_background_species)
+end
+
+function PrintCollision(c::Collision)
+    @printf("Collision name: %s\n", c.name)
+    coll_str = ""
+    r_len = length(c.reactants)
+    for (i,s) in enumerate(c.reactants)
+        coll_str *= s.name
+        if i < r_len
+            coll_str *= " + "
+        end
+    end
+    coll_str *= " -> "
+    p_len = length(c.products)
+    for (i,s) in enumerate(c.products)
+        coll_str *= s.name
+        if i < p_len
+            coll_str *= " + "
+        end
+    end
+    @printf(" - Reaction equation: %s\n", coll_str)
+    species_str = ""
+    s_len = length(c.species)
+    for (i,s) in enumerate(c.species)
+        species_str *= "    -> " * s.name
+        species_str *= @sprintf(" - balance: %i", c.species_balance[i])
+        if i < s_len
+            species_str *= "\n"
+        end
+    end
+    @printf(" - Involved species:\n%s\n", species_str)
+    
+    @printf(" - Energy threshold %g eV\n", c.energy_threshold / e)
+    #species_balance::Vector{Int64}
+    #energy_data::Vector{Float64}
+    #cross_section_data::Vector{Float64}
+    #diagnostic::Vector{Int64}
 end
 
 end

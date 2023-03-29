@@ -57,6 +57,8 @@ mutable struct System
     bc_part_min::Int64
     bc_part_max::Int64
 
+    mcc::Bool
+
     folder::String
     log_file::String
 
@@ -132,6 +134,22 @@ mutable struct Waveform
     t_end::Float64
 
     Waveform() = new()
+end
+
+mutable struct Collision
+    name::String
+    reactants::Vector{Species}
+    products::Vector{Species}
+    species::Vector{Species}
+    species_balance::Vector{Int64}
+    energy_threshold::Float64
+
+    energy_data::Vector{Float64}
+    cross_section_data::Vector{Float64}
+
+    diagnostic::Vector{Int64}
+
+    Collision() = new()
 end
 
 end

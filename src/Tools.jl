@@ -6,7 +6,7 @@ using Constants: c_bc_open, c_bc_periodic
 using Constants: c_stag_centre, c_stag_right
 using Constants: c_field_magnetic, c_field_electric
 using Constants: c_bc_x_min, c_bc_x_max
-using Constants: K_to_eV
+using Constants: K_to_eV, e
 using PrintModule: PrintWarningMessage
 
 function InterpolateParticleToGrid!(field::Vector{Float64}, part_pos::Float64, system::System)
@@ -94,6 +94,9 @@ function RealocateParticlesToGridList!(species_list::Vector{Species}, system::Sy
     dx = system.dx
     ncells = system.ncells
     for species in species_list
+        if species.is_background_species
+            continue
+        end
         for i in range(1,ncells,step=1)
 
             # -1.5/0.5 substraction because i needs a -1 shift
@@ -116,24 +119,26 @@ end
 function RealocateParticlesToMainList!(species_list::Vector{Species})
 
     for species in species_list
+        if species.is_background_species
+            continue
+        end
         species.particle_list = reduce(vcat, species.particle_grid_list)
     end
 end
 
 
-function GetUnits!(var::Union{String,SubString{String}})
+function GetUnits!(var::Union{String,SubString{String}}; symb='_'::Char)
     # Identify units definition
     units_fact = 1.0
-    units_index = findlast("_", var)
+    units_index = findlast(symb, var)
     if !(units_index === nothing)
-        units_index = units_index[1]
         units_str = lowercase(var[units_index+1:end])
         match_flag = false
-        if (units_str=="ev")
+        if (units_str=="tev")
             # this eV refers to TEMPERATURE!
             units_fact = 1.0/K_to_eV
             match_flag = true
-        elseif (units_str=="eev")
+        elseif (units_str=="ev")
             # this eV refers to ENERGY 
             units_fact = e
             match_flag = true

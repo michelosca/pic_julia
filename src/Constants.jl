@@ -29,6 +29,7 @@ const c_block_species = 401
 const c_block_output = 402
 const c_block_constants = 403
 const c_block_waveform = 404
+const c_block_mcc = 405
 
 const c_o_all_species = 500
 const c_o_none_species = 501

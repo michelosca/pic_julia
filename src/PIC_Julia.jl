@@ -1,6 +1,6 @@
 module PIC_Julia 
 
-using SharedData: System, Species, OutputBlock, Waveform
+using SharedData: System, Species, OutputBlock, Waveform, Collision
 using Inputs: SetupInputData!
 using GridData: GetTotalChargeDensity
 using ElectricMagneticFields: UpdateElectricField!, GetElectricPotential
@@ -28,8 +28,16 @@ function run_pic(input_file::String)
     # Initialize waveform list
     waveform_list = Waveform[]
 
-    errcode = SetupInputData!(input_file::String, species_list::Vector{Species}, 
-        system::System, output_list::Vector{OutputBlock}, waveform_list::Vector{Waveform})
+    # Initialize collision list
+    collision_list = Collision[]
+
+    errcode = SetupInputData!(input_file
+        , species_list
+        , system
+        , output_list
+        , waveform_list
+        , collision_list
+    )
     if errcode == c_error
         return c_error
     end
@@ -80,18 +88,13 @@ function run_pic(input_file::String)
 
         # 6.- Collisions: 6.1.- gather particles in cells
         RealocateParticlesToGridList!(species_list, system)
-        #for species in species_list
-        #    print(species.name, " secondary list ", length(species.particle_grid_list),"\n")
-        #end
-        #                 6.2.- collider
-        #                 6.3.- 
         RealocateParticlesToMainList!(species_list)
 
-        # 6.- Update time
+        # 7.- Update time
         system.time += system.dt
         system.step += 1
 
-        # 7.- Output data
+        # 8.- Output data
         GenerateOutputs!(output_list, species_list, system, electric_potential, electric_field)
 
     end

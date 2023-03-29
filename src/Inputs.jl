@@ -18,9 +18,9 @@
 module Inputs
 
 using Constants: c_error
-using Constants: c_block_system, c_block_species, c_block_output
+using Constants: c_block_system, c_block_species, c_block_output, c_block_mcc
 using Constants: c_block_constants, c_block_waveform
-using SharedData: Species, System, OutputBlock, Waveform
+using SharedData: Species, System, OutputBlock, Waveform, Collision
 using InputBlock_System: StartFile_System!, StartSystemBlock!
 using InputBlock_System: ReadSystemEntry!, EndSystemBlock!, EndFile_System!
 using InputBlock_Species: StartFile_Species!, StartSpeciesBlock!
@@ -29,6 +29,8 @@ using InputBlock_Output: StartFile_Output!, StartOutputBlock!
 using InputBlock_Output: ReadOutputEntry!, EndOutputBlock!, EndFile_Output!
 using InputBlock_Waveform: StartFile_Waveform!, StartWaveformBlock!
 using InputBlock_Waveform: ReadWaveformEntry!, EndWaveformBlock!, EndFile_Waveform!
+using InputBlock_MCC: StartFile_MCC!, StartMCCBlock!
+using InputBlock_MCC: ReadMCCEntry!, EndMCCBlock!, EndFile_MCC!
 
 # The input deck is read twice
 # 1ST READ
@@ -48,13 +50,21 @@ using InputBlock_Waveform: ReadWaveformEntry!, EndWaveformBlock!, EndFile_Wavefo
 ## -> TIME STEP CONDITIONS at SYSTEM are set at StartFile_System
 ## -> Read OUTPUT parameters: when system and species data is already available
 ##    - All output parameters are defined at the end of each block
+## -> Read WAVEFORM parameters
+##    - Waveform functions for potential
+## -> Read COLLISION parameters
+##    - Read and setup MCC
 
 # INPUT BLOCK IDs
 global block_id = 0
 
-function SetupInputData!(filename::String, species_list::Vector{Species}, 
-    system::System, output_list::Vector{OutputBlock},
-    waveform_list::Vector{Waveform})
+function SetupInputData!(filename::String
+    , species_list::Vector{Species}
+    , system::System
+    , output_list::Vector{OutputBlock}
+    , waveform_list::Vector{Waveform}
+    , collision_list::Vector{Collision}
+    )
 
     errcode = 0
 
@@ -62,15 +72,15 @@ function SetupInputData!(filename::String, species_list::Vector{Species},
     for read_step in 1:2
         print("Reading $read_step of the input deck...\n")
         errcode = StartFile!(read_step, species_list, system, output_list,
-            waveform_list)
+            waveform_list, collision_list)
         if (errcode == c_error) return errcode end
 
         errcode = ReadFile!(filename, read_step, species_list, system,
-            output_list, waveform_list)
+            output_list, waveform_list, collision_list)
         if (errcode == c_error) return errcode end
 
         errcode = EndFile!(read_step, species_list, system, output_list,
-            waveform_list)
+            waveform_list, collision_list)
         if (errcode == c_error) return errcode end
         print("End of input deck reading\n\n")
     end
@@ -83,7 +93,9 @@ end
 function ReadFile!(filename::String, read_step::Int64,
     species_list::Vector{Species},
     system::System, output_list::Vector{OutputBlock},
-    waveform_list::Vector{Waveform})
+    waveform_list::Vector{Waveform},
+    collision_list::Vector{Collision}
+    )
     
     errcode = 0
 
@@ -94,7 +106,8 @@ function ReadFile!(filename::String, read_step::Int64,
             s = readline(f)
             # ReadLine identifies each line on filename
             errcode = ReadLine!(s, read_step, species_list,
-                system, output_list, constants, waveform_list)
+                system, output_list, constants, waveform_list,
+                collision_list)
             if (errcode == c_error)
                 print("***ERROR*** Stop reading at file line ", line,"\n")
                 return errcode  
@@ -110,7 +123,8 @@ function ReadLine!(str::String, read_step::Int64,
     species_list::Vector{Species},
     system::System, output_list::Vector{OutputBlock},
     constants::Vector{Tuple{SubString{String},SubString{String}}},
-    waveform_list::Vector{Waveform}
+    waveform_list::Vector{Waveform},
+    collision_list::Vector{Collision}
     )
 
     errcode = c_error 
@@ -134,7 +148,7 @@ function ReadLine!(str::String, read_step::Int64,
         global block_name = str[i_block+1:end]
         if (occursin("begin", str))
             errcode = StartBlock!(block_name, read_step, species_list,
-                system, output_list, waveform_list)
+                system, output_list, waveform_list, collision_list)
             if (errcode == c_error)
                 print("***ERROR*** Something went wrong starting the ",
                     block_name, " block\n")
@@ -142,7 +156,7 @@ function ReadLine!(str::String, read_step::Int64,
             end
         elseif (occursin("end", str))
             errcode = EndBlock!(block_name, read_step, species_list,
-                system, output_list, waveform_list)
+                system, output_list, waveform_list, collision_list)
             if (errcode == c_error)
                 print("***ERROR*** Something went wrong ending the ",
                     block_name, " block\n")
@@ -154,7 +168,8 @@ function ReadLine!(str::String, read_step::Int64,
         name = strip(str[begin:i_eq-1])
         var = strip(str[i_eq+1:end])
         errcode = ReadInputDeckEntry!(name, var, read_step,
-            species_list, system, output_list, constants, waveform_list)
+            species_list, system, output_list, constants, waveform_list,
+            collision_list)
         if (errcode == c_error)
             print("***WARNING*** Entry in ", block_name,
                 "-block has not been located\n")
@@ -169,7 +184,9 @@ end
 
 function StartFile!(read_step::Int64, species_list::Vector{Species},
     system::System, output_list::Vector{OutputBlock},
-    waveform_list::Vector{Waveform})
+    waveform_list::Vector{Waveform},
+    collision_list::Vector{Collision}
+    )
 
     errcode = StartFile_Species!(read_step, species_list, system) 
     if (errcode == c_error)
@@ -190,6 +207,11 @@ function StartFile!(read_step::Int64, species_list::Vector{Species},
     if (errcode == c_error)
         print("***ERROR*** While initializing the input waveform block")
     end
+
+    errcode = StartFile_MCC!(read_step, collision_list, system) 
+    if (errcode == c_error)
+        print("***ERROR*** While initializing the input MCC block")
+    end
     
     return errcode
 end
@@ -197,7 +219,9 @@ end
 
 function EndFile!(read_step::Int64, species_list::Vector{Species},
     system::System, output_list::Vector{OutputBlock},
-    waveform_list::Vector{Waveform})
+    waveform_list::Vector{Waveform},
+    collision_list::Vector{Collision}
+    )
 
     errcode = EndFile_Species!(read_step, species_list, system)
     if (errcode == c_error)
@@ -223,6 +247,12 @@ function EndFile!(read_step::Int64, species_list::Vector{Species},
         return errcode
     end
     
+    errcode = EndFile_MCC!(read_step, collision_list, system) 
+    if (errcode == c_error)
+        print("***ERROR*** While finalizing the input MCC block\n")
+        return errcode
+    end
+    
     return errcode
 end
 
@@ -230,7 +260,8 @@ end
 function StartBlock!(name::SubString{String}, read_step::Int64,
     species_list::Vector{Species},
     system::System, output_list::Vector{OutputBlock},
-    waveform_list::Vector{Waveform}
+    waveform_list::Vector{Waveform},
+    collision_list::Vector{Collision}
     )
 
     errcode = c_error
@@ -246,6 +277,10 @@ function StartBlock!(name::SubString{String}, read_step::Int64,
     elseif (occursin("waveform",name))
         global block_id = c_block_waveform
         errcode = StartWaveformBlock!(read_step, waveform_list, system)
+    elseif (occursin("MCC",name))
+        global block_id = c_block_mcc
+        errcode = StartMCCBlock!(read_step, collision_list, species_list,
+            system)
     elseif (occursin("constants",name))
         global block_id = c_block_constants
         errcode = 0
@@ -255,7 +290,9 @@ end
 
 function EndBlock!(name::SubString{String}, read_step::Int64,
     species_list::Vector{Species}, system::System,
-    output_list::Vector{OutputBlock}, waveform_list::Vector{Waveform})
+    output_list::Vector{OutputBlock}, waveform_list::Vector{Waveform},
+    collision_list::Vector{Collision}
+    )
 
     errcode = c_error
     global block_id = 0
@@ -267,6 +304,8 @@ function EndBlock!(name::SubString{String}, read_step::Int64,
         errcode = EndOutputBlock!(read_step, output_list, system)
     elseif (occursin("waveform",name))
         errcode = EndWaveformBlock!(read_step, waveform_list, system)
+    elseif (occursin("MCC",name))
+        errcode = EndMCCBlock!(read_step, collision_list, system)
     elseif (occursin("constants",name))
         errcode = 0
     end
@@ -278,7 +317,8 @@ function ReadInputDeckEntry!(name::SubString{String}, var::SubString{String},
     read_step::Int64, species_list::Vector{Species}, system::System,
     output_list::Vector{OutputBlock},
     constants::Vector{Tuple{SubString{String},SubString{String}}},
-    waveform_list::Vector{Waveform})
+    waveform_list::Vector{Waveform},
+    collision_list::Vector{Collision})
 
     errcode = c_error 
 
@@ -287,12 +327,14 @@ function ReadInputDeckEntry!(name::SubString{String}, var::SubString{String},
     if (block_id == c_block_system)
         errcode = ReadSystemEntry!(name, var, read_step, system)
     elseif (block_id == c_block_species)
-        errcode = ReadSpeciesEntry!(name, var, read_step, species_list)
+        errcode = ReadSpeciesEntry!(name, var, read_step, species_list, system)
     elseif (block_id == c_block_output)
         errcode = ReadOutputEntry!(name, var, read_step, output_list,
             species_list, system)
     elseif (block_id == c_block_waveform)
         errcode = ReadWaveformEntry!(name, var, read_step, waveform_list)
+    elseif (block_id == c_block_mcc)
+        errcode = ReadMCCEntry!(name, var, read_step, collision_list)
     elseif (block_id == c_block_constants)
         push!(constants, (name,var))
         errcode = 0

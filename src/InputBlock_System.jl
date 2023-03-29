@@ -81,6 +81,8 @@ function StartSystemBlock!(read_step::Int64, system::System)
         system.bc_part_min = -1 #c_bc_periodic #open #
         system.bc_part_max = -1 #c_bc_periodic #open #
 
+        system.mcc = false
+
         # Generate a log file name
         now_stamp = Dates.now()
         log_num = Dates.format(now_stamp, "yyyymmddHHMMSS")
