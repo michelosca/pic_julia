@@ -145,11 +145,25 @@ mutable struct Collision
     energy_threshold::Float64
 
     energy_data::Vector{Float64}
+    energy_units::Float64
     cross_section_data::Vector{Float64}
+    cross_section_units::Float64
 
     diagnostic::Vector{Int64}
 
     Collision() = new()
+end
+
+mutable struct CollisionGroup
+
+    collision_list::Vector{Collision}
+    colliding_species::Vector{Species}
+
+    gsigma_max::Float64
+    part_weight_max::Float64
+    reduced_mass::Float64
+
+    CollisionGroup() = new()
 end
 
 end

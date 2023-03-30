@@ -126,7 +126,6 @@ function RealocateParticlesToMainList!(species_list::Vector{Species})
     end
 end
 
-
 function GetUnits!(var::Union{String,SubString{String}}; symb='_'::Char)
     # Identify units definition
     units_fact = 1.0
@@ -173,7 +172,6 @@ function GetUnits!(var::Union{String,SubString{String}}; symb='_'::Char)
     end
     return units_fact, var
 end
-
 
 function parse_boundary(var::Union{String,SubString{String}})
 

@@ -207,7 +207,7 @@ end
 
 function RF_potential_wave()
 
-    for i in 0:100
+    for i in 0:200
         filename = @sprintf("stdout%05i.h5",i)
         h5open("sim/"* filename,"r") do fid
             system = read(fid, "System")
@@ -222,7 +222,7 @@ function RF_potential_wave()
                 , linewidth = 2
                 , xlabel = "Position / m"
                 , ylabel = "Plasma potential / V"
-                , ylims = (-110,110)
+                , ylims = (-210,210)
                 , xlims = (x[1], x[end])
                 , legend = false
             )
@@ -230,11 +230,47 @@ function RF_potential_wave()
             # Analytic solution
             system = fid["System"]
             time = attrs(system)["time"]
-            an_pot = 100.0 * sin(2*pi*13.56e6*time) 
-            plot!(p, [x[1], x[end]], [an_pot, an_pot])
+            an_pot_left  = 100.0 * sin(4*pi*13.56e6*time)
+            an_pot_right = 100.0 * (sin(2.0*pi*13.56e6*time))
+            plot!(p, [x[1], x[50]], [an_pot_left, an_pot_left], c = :black, lw = 2)
+            plot!(p, [x[50], x[end]], [an_pot_right, an_pot_right], c = :green, lw = 2)
             fig_name = @sprintf("potential_%05i.png",i)
             savefig(p, "sim/pot/"*fig_name)
         end
     end
 end
+
+function MCC_test()
+
+    p = plot(
+        frame = :box
+        , xlabel = "Position / m"
+        , ylabel = "Number density / m^{-3}"
+        , legend = true 
+    )
+    ls_list = [:solid, :dot]
+    for i in 0:1
+        filename = @sprintf("stdout%05i.h5",i)
+        h5open("sim/"* filename,"r") do fid
+            system = read(fid, "System")
+            x = system["Grid"]
+
+            # Plot densities
+            dens_struct = read(fid, "Number_Density")
+            for (species, dens) in dens_struct
+                if species == "electrons"
+                    plot!(p, x, dens
+                        , linewidth = 2
+                        , label = species
+                        , xlims = (x[1], x[end])
+                        , ls = ls_list[i+1]
+                    )
+                end
+            end
+        end
+    end
+    fig_name = @sprintf("dens_mcc.png")
+    savefig(p, "sim/"*fig_name)
+end
+
 end

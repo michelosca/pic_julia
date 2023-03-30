@@ -19,8 +19,9 @@ module InputBlock_MCC
 
 using Constants: c_error
 using Constants: c_bc_open
+using Constants: e
 using PrintModule: PrintMessage, PrintErrorMessage, PrintCollision
-using SharedData: System, Species, Collision
+using SharedData: System, Species, Collision, CollisionGroup
 using Printf
 using Tools: GetUnits!
 
@@ -56,10 +57,10 @@ function StartMCCBlock!(read_step::Int64, collision_list::Vector{Collision},
             return errcode  
         end
 
-        for c in collision_list
-            PrintCollision(c)
-            print("\n\n")
-        end
+        #for c in collision_list
+        #    PrintCollision(c)
+        #    print("\n\n")
+        #end
 
         errcode = 0
     end
@@ -75,7 +76,7 @@ function ReadMCCEntry!(name::SubString{String}, var::SubString{String},
     if (read_step == 1)
         errcode = 0
     elseif read_step == 2
-        units_fact, name = GetUnits!(name)
+        #units_fact, name = GetUnits!(name)
         errcode = 0
     end
     return errcode 
@@ -91,10 +92,20 @@ function EndMCCBlock!(read_step::Int64, collision_list::Vector{Collision},
 end
     
 
-function EndFile_MCC!(read_step::Int64, collision_list::Vector{Collision},
+function EndFile_MCC!(read_step::Int64,
+    collisiongroup_list::Vector{CollisionGroup},
+    collision_list::Vector{Collision},
+    species_list::Vector{Species},
     system::System) 
 
     errcode = 0 
+
+    if read_step == 2
+        if system.mcc
+            SetupCollisionGroups!(collisiongroup_list, collision_list,
+                species_list, system)
+        end
+    end
 
     return errcode
 end
@@ -118,6 +129,8 @@ function LoadCollisions!(collision_list::Vector{Collision}
             PrintMessage(system, message)
             continue
         end
+
+        global data_reading_flag = false
 
         for table in table_list
             
@@ -149,11 +162,30 @@ function LoadCollisions!(collision_list::Vector{Collision}
     return errcode
 end
 
+
 function ReadTableLine!(str::String, collision_list::Vector{Collision},
     species_list::Vector{Species}, system::System)
 
     errcode = 0
 
+    ############################################################################
+    # PARSE DATA
+    if str == "-----------------------------"
+        # This signals the start/end of the data reading
+        #print("Switch flag ", data_flag,"\n")
+        global data_reading_flag = ! data_reading_flag 
+        return errcode
+    elseif data_reading_flag
+        errcode = ReadTableData!(str, collision_list[end])
+        if errcode == c_error
+            message = "While parsing data in collision table"
+            PrintErrorMessage(system, message)
+        end
+        return errcode
+    end
+
+    ############################################################################
+    # PARSE HEADER
     # Name description
     i_name = findfirst(':', str)
     if i_name === nothing
@@ -172,14 +204,32 @@ function ReadTableLine!(str::String, collision_list::Vector{Collision},
         collision = InitCollision()
         push!(collision_list, collision)
         errcode = ParseSpecies!(var_str, collision_list[end], species_list, system)
+        if errcode == c_error
+            message = "While parsing SPECIES in collision table"
+            PrintErrorMessage(system, message)
+        end
     elseif str_name == "PROCESS"
         errcode = ParseProcess!(var_str, collision_list[end], species_list, system)
+        if errcode == c_error
+            message = "While parsing PROCESS in collision table"
+            PrintErrorMessage(system, message)
+        end
     elseif str_name == "PARAM."
         errcode = ParseParam!(var_str, collision_list[end], species_list, system)
-    #elseif str_name == "COLUMNS"
+        if errcode == c_error
+            message = "While parsing PARAM. in collision table"
+            PrintErrorMessage(system, message)
+        end
+    elseif str_name == "COLUMNS"
+        errcode = ParseColumns!(var_str, collision_list[end], species_list, system)
+        if errcode == c_error
+            message = "While parsing COLUMNS in collision table"
+            PrintErrorMessage(system, message)
+        end
     end
     return errcode
 end
+
 
 function ParseSpecies!(var::Union{String, SubString{String}},
     collision::Collision, species_list::Vector{Species},
@@ -214,6 +264,7 @@ function ParseSpecies!(var::Union{String, SubString{String}},
     
     return errcode
 end
+
 
 function ParseProcess!(var::Union{String, SubString{String}},
     collision::Collision, species_list::Vector{Species},
@@ -307,6 +358,7 @@ function ParseProcess!(var::Union{String, SubString{String}},
     return errcode
 end
 
+
 function ParseParam!(var::Union{String, SubString{String}},
     collision::Collision, species_list::Vector{Species},
     system::System)
@@ -332,6 +384,66 @@ function ParseParam!(var::Union{String, SubString{String}},
     return errcode
 end
 
+
+function ParseColumns!(var::Union{String, SubString{String}},
+    collision::Collision, species_list::Vector{Species},
+    system::System)
+
+    errcode = 0
+    
+    # Column entries 
+    e_and_sigma = SplitString(var, '|')
+    e_str_0 = e_and_sigma[1]
+    s_str_0 = e_and_sigma[2]
+
+    ### Get values between () 
+    e_str_1 = SplitString(e_str_0, '(')
+    e_str_2 = SplitString(e_str_1[2], ')')
+    e_str = e_str_2[1]
+    if e_str == "eV"
+        collision.energy_units = e
+    else
+        message = "Energy units not recognized"
+        PrintErrorMessage(system, message)
+        return c_error
+    end
+    
+    s_str_1 = SplitString(s_str_0, '(')
+    s_str_2 = SplitString(s_str_1[2], ')')
+    s_str = s_str_2[1]
+    if s_str == "m2"
+        collision.cross_section_units = 1.0
+    else
+        message = "Cross section units not recognized"
+        PrintErrorMessage(system, message)
+        return c_error
+    end
+
+    return errcode
+end
+
+
+function ReadTableData!(str::Union{String, SubString{String}}, collision::Collision)
+
+    errcode = 0
+
+    str_strip = strip(str)
+    sigma_and_energy = SplitString(str_strip, '\t')
+
+    # Energy
+    energy_str = sigma_and_energy[1]
+    energy = parse(Float64, energy_str) * collision.energy_units
+    push!(collision.energy_data, energy)
+    
+    # Cross section
+    sigma_str = sigma_and_energy[2]
+    sigma = parse(Float64, sigma_str) * collision.cross_section_units
+    push!(collision.cross_section_data, sigma)
+
+    return errcode
+end
+
+
 function IdentifySpecies(species_name::Union{String, SubString{String}},
     species_list::Vector{Species})
 
@@ -347,6 +459,7 @@ function IdentifySpecies(species_name::Union{String, SubString{String}},
     end
     return nothing, errcode
 end
+
 
 function SplitString(var::Union{String, SubString{String}},
     symb::Union{Char, String})
@@ -384,6 +497,7 @@ function SplitString(var::Union{String, SubString{String}},
     return species_name_list 
 end
 
+
 function InitCollision()
     collision = Collision()
     collision.name = "collision_name"
@@ -393,9 +507,48 @@ function InitCollision()
     collision.species_balance= Int64[]
     collision.energy_threshold = 0.0
     collision.energy_data = Float64[]
+    collision.energy_units = 1.0 
     collision.cross_section_data = Float64[]
+    collision.cross_section_units = 1.0 
     collision.diagnostic = Float64[]
     return collision
+end
+
+
+function SetupCollisionGroups!(collisiongroup_list::Vector{CollisionGroup},
+    collision_list::Vector{Collision}, species_list::Vector{Species},
+    system::System)
+
+
+    for collision in collision_list
+        create_group = true
+        for group in collisiongroup_list
+            if collision.reactants == group.colliding_species
+                create_group = false
+                push!(group.collision_list, collision)
+                break
+            end
+        end
+
+        if create_group
+            group = InitCollisionGroup()
+            push!(collisiongroup_list, group)
+            group.colliding_species = collision.reactants
+            push!(group.collision_list, collision)
+        end
+    end
+end
+
+function InitCollisionGroup()
+    coll_group = CollisionGroup()
+    coll_group.collision_list = Collision[]
+    coll_group.colliding_species = Species[]
+
+    coll_group.gsigma_max = 0.0
+    coll_group.part_weight_max = 0.0
+    coll_group.reduced_mass = 0.0
+
+    return coll_group
 end
 
 end

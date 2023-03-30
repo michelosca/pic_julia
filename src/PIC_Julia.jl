@@ -1,6 +1,6 @@
 module PIC_Julia 
 
-using SharedData: System, Species, OutputBlock, Waveform, Collision
+using SharedData: System, Species, OutputBlock, Waveform, CollisionGroup
 using Inputs: SetupInputData!
 using GridData: GetTotalChargeDensity
 using ElectricMagneticFields: UpdateElectricField!, GetElectricPotential
@@ -13,6 +13,8 @@ using Outputs: GenerateOutputs!
 using TestModule: test_species_densities, test_plot_field
 using Constants: c_field_electric, c_field_pot, c_field_rho
 using Constants: c_error
+
+using PrintModule: PrintCollision
 
 function run_pic(input_file::String)
 
@@ -29,7 +31,7 @@ function run_pic(input_file::String)
     waveform_list = Waveform[]
 
     # Initialize collision list
-    collision_list = Collision[]
+    collision_list = CollisionGroup[]
 
     errcode = SetupInputData!(input_file
         , species_list
@@ -38,6 +40,15 @@ function run_pic(input_file::String)
         , waveform_list
         , collision_list
     )
+
+    for coll_grup in collision_list
+        print("Collision group ", coll_grup.colliding_species[1].name,"\n")
+        print("Collision group ", coll_grup.colliding_species[2].name,"\n")
+        for c in coll_grup.collision_list
+            PrintCollision(c)
+        end
+    end
+
     if errcode == c_error
         return c_error
     end

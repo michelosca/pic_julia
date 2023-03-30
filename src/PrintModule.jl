@@ -87,10 +87,13 @@ function PrintCollision(c::Collision)
     @printf(" - Involved species:\n%s\n", species_str)
     
     @printf(" - Energy threshold %g eV\n", c.energy_threshold / e)
-    #species_balance::Vector{Int64}
-    #energy_data::Vector{Float64}
-    #cross_section_data::Vector{Float64}
-    #diagnostic::Vector{Int64}
+    @printf(" - Energy data length %i\n", length(c.energy_data))
+    @printf(" - Energy units %g\n", c.energy_units)
+    @printf(" - Cross-section data length %i\n", length(c.cross_section_data))
+    @printf(" - Cross section units %g\n", c.cross_section_units)
+    #for (energy, sigma) in zip(c.energy_data, c.cross_section_data)
+    #    @printf("     %10.4e %10.4e\n",energy/e,sigma)
+    #end
 end
 
 end

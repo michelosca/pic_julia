@@ -20,7 +20,8 @@ module Inputs
 using Constants: c_error
 using Constants: c_block_system, c_block_species, c_block_output, c_block_mcc
 using Constants: c_block_constants, c_block_waveform
-using SharedData: Species, System, OutputBlock, Waveform, Collision
+using SharedData: Species, System, OutputBlock, Waveform
+using SharedData: Collision, CollisionGroup
 using InputBlock_System: StartFile_System!, StartSystemBlock!
 using InputBlock_System: ReadSystemEntry!, EndSystemBlock!, EndFile_System!
 using InputBlock_Species: StartFile_Species!, StartSpeciesBlock!
@@ -63,10 +64,12 @@ function SetupInputData!(filename::String
     , system::System
     , output_list::Vector{OutputBlock}
     , waveform_list::Vector{Waveform}
-    , collision_list::Vector{Collision}
+    , collisiongroup_list::Vector{CollisionGroup}
     )
 
     errcode = 0
+
+    collision_list = Collision[]
 
     # Opens the file given in filename and reads each line
     for read_step in 1:2
@@ -80,12 +83,12 @@ function SetupInputData!(filename::String
         if (errcode == c_error) return errcode end
 
         errcode = EndFile!(read_step, species_list, system, output_list,
-            waveform_list, collision_list)
+            waveform_list, collision_list, collisiongroup_list)
         if (errcode == c_error) return errcode end
         print("End of input deck reading\n\n")
     end
     GetInputFolder!(system, filename)
-
+    
     return errcode
 end
 
@@ -220,7 +223,8 @@ end
 function EndFile!(read_step::Int64, species_list::Vector{Species},
     system::System, output_list::Vector{OutputBlock},
     waveform_list::Vector{Waveform},
-    collision_list::Vector{Collision}
+    collision_list::Vector{Collision},
+    collisiongroup_list::Vector{CollisionGroup}
     )
 
     errcode = EndFile_Species!(read_step, species_list, system)
@@ -247,7 +251,8 @@ function EndFile!(read_step::Int64, species_list::Vector{Species},
         return errcode
     end
     
-    errcode = EndFile_MCC!(read_step, collision_list, system) 
+    errcode = EndFile_MCC!(read_step, collisiongroup_list,
+        collision_list, species_list, system) 
     if (errcode == c_error)
         print("***ERROR*** While finalizing the input MCC block\n")
         return errcode
@@ -287,6 +292,7 @@ function StartBlock!(name::SubString{String}, read_step::Int64,
     end
     return errcode
 end
+
 
 function EndBlock!(name::SubString{String}, read_step::Int64,
     species_list::Vector{Species}, system::System,
@@ -356,6 +362,7 @@ function CheckConstantValues!(var::SubString{String},
 
     return var
 end
+
 
 function GetInputFolder!(system::System, filename::String)
 
