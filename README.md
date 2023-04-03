@@ -31,6 +31,7 @@ MCC null-collision method ([Vahedi *et al*, 1995](https://doi.org/10.1016/0010-4
 
 ## **Input description**
 <div id='id-input_deck'/>
+
  - Input data is structured in *blocks*
  - Each block starts with ``begin:<block_name>`` and ends with ``end:<block_name>``
  - The following blocks are available
