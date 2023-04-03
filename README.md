@@ -3,11 +3,11 @@
 MCC null-collision method ([Vahedi *et al*, 1995](https://doi.org/10.1016/0010-4655(94)00171-W)) and  cross-section data is found in *collisions* folder
 
 ## Content
-1. [Run PIC-Julia](run_pic_julia)
-2. [Input deck](input_deck)
+1. [Run PIC-Julia](#id-run_pic)
+2. [Input deck](#id-input_deck)
 
-
-## **Run PIC-Julia**<a name="run_pic_julia"></a>
+<div id='id_run_pic'/>
+## **Run PIC-Julia**
  1. Include PIC-Julia folder to ``LOAD_PATH`` and load PIC_Julia module
 
     ```Julia
@@ -24,7 +24,8 @@ MCC null-collision method ([Vahedi *et al*, 1995](https://doi.org/10.1016/0010-4
  4. Simulation log file is generated
  
 
-## **Input description**<a name="input_deck"></a>
+<div id='id-input_deck'/>
+## **Input description**
  - Input data is structured in *blocks*
  - Each block starts with ``begin:<block_name>`` and ends with ``end:<block_name>``
  - The following blocks are available
