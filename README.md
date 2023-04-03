@@ -1,13 +1,18 @@
 # **PIC-Julia**
-**Particle-In-Cell (PIC)** model with **Monte Carlo collisions (MCC)** for low temperature plasma. 
+**Particle-In-Cell (PIC)** (1D) model with **Monte Carlo collisions (MCC)** for low temperature plasmas. 
+<!--
 MCC null-collision method ([Vahedi *et al*, 1995](https://doi.org/10.1016/0010-4655(94)00171-W)) and  cross-section data is found in *collisions* folder
+-->
 
 ## Content
-1. [Run PIC-Julia](#id-run_pic)
-2. [Input deck](#id-input_deck)
+<!-- TOC start -->
+- [**Run PIC-Julia**](#run-pic-julia)
+- [**Input description**](#input-description)
+  * [**Input block: SYSTEM**](#input-block-system)
+  * [**Input block: SPECIES**](#input-block-species)
+<!-- TOC end -->
 
 ## **Run PIC-Julia**
-<div id='id_run_pic'/>
  1. Include PIC-Julia folder to ``LOAD_PATH`` and load PIC_Julia module
 
     ```Julia
