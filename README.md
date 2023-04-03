@@ -1,7 +1,6 @@
 # **PIC-Julia**
-**Particle-In-Cell (PIC)** model for low temperature plasmas.
-
-**Monte Carlo collisions (MCC)** are included using a null-collision method. Collision cross-section data is found in *collision* folder
+**Particle-In-Cell (PIC)** model with **Monte Carlo collisions (MCC)** for low temperature plasma. 
+MCC null-collision method ([Vahedi *et al*, 1995](https://doi.org/10.1016/0010-4655(94)00171-W)) and  cross-section data is found in *collisions* folder
 
 
 ##  **Run PIC-Julia**
