@@ -116,7 +116,7 @@ function ReadSpeciesEntry!(name::SubString{String}, var::SubString{String},
             return 0
         end
 
-        if (name=="weight" || name=="part_weight" || name=="part_ration")
+        if (name=="weight" || name=="part_weight" || name=="part_ratio")
             species.weight = parse(Float64, var) * units 
             return 0
         end

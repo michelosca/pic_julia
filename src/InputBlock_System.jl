@@ -116,9 +116,9 @@ function ReadSystemEntry!(name::SubString{String}, var::SubString{String},
         elseif lname=="x_max"
             system.x_max = parse(Float64, var) * units_fact
             errcode = 0
-        #elseif lname=="lx"
-        #    system.Lx = parse(Float64, var) * units_fact
-        #    errcode = 0
+        elseif lname=="lx"
+            system.Lx = parse(Float64, var) * units_fact
+            errcode = 0
         elseif lname=="ncells" || lname=="cells"
             system.ncells = parse(Int64, var) 
             errcode = 0
@@ -204,11 +204,16 @@ function EndSystemBlock!(read_step::Int64, system::System)
     if read_step == 1
 
         ### Spatial check
-        system.Lx = system.x_max - system.x_min 
-        if system.Lx <= 0.0
-            PrintErrorMessage(system, "Simulation domain length must be > 0")
-            errcode = c_error
-            return errcode 
+        if system.Lx == 0.0
+            system.Lx = system.x_max - system.x_min 
+            if system.Lx <= 0.0
+                PrintErrorMessage(system, "Simulation domain length must be > 0")
+                errcode = c_error
+                return errcode 
+            end
+        else
+            system.x_min = 0.0
+            system.x_max = system.Lx
         end
 
         if system.ncells == -1
