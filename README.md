@@ -6,8 +6,8 @@ MCC null-collision method ([Vahedi *et al*, 1995](https://doi.org/10.1016/0010-4
 1. [Run PIC-Julia](#id-run_pic)
 2. [Input deck](#id-input_deck)
 
-<div id='id_run_pic'/>
 ## **Run PIC-Julia**
+<div id='id_run_pic'/>
  1. Include PIC-Julia folder to ``LOAD_PATH`` and load PIC_Julia module
 
     ```Julia
@@ -24,8 +24,8 @@ MCC null-collision method ([Vahedi *et al*, 1995](https://doi.org/10.1016/0010-4
  4. Simulation log file is generated
  
 
-<div id='id-input_deck'/>
 ## **Input description**
+<div id='id-input_deck'/>
  - Input data is structured in *blocks*
  - Each block starts with ``begin:<block_name>`` and ends with ``end:<block_name>``
  - The following blocks are available
@@ -62,7 +62,7 @@ The system block gathers the simulation parameters required
 - *t_end*: simulation time, default 0.0
 - *step_end*: simulation steps, default 0
 
-### *Input block: SPECIES**
+### **Input block: SPECIES**
 A species block is required for each species to be simulated
 
 - *name*: name of the species
