@@ -2,8 +2,12 @@
 **Particle-In-Cell (PIC)** model with **Monte Carlo collisions (MCC)** for low temperature plasma. 
 MCC null-collision method ([Vahedi *et al*, 1995](https://doi.org/10.1016/0010-4655(94)00171-W)) and  cross-section data is found in *collisions* folder
 
+## Content
+1. [Run PIC-Julia](run_pic_julia)
+2. [Input deck](input_deck)
 
-##  **Run PIC-Julia**
+
+## **Run PIC-Julia**<a name="run_pic_julia"></a>
  1. Include PIC-Julia folder to ``LOAD_PATH`` and load PIC_Julia module
 
     ```Julia
@@ -20,7 +24,7 @@ MCC null-collision method ([Vahedi *et al*, 1995](https://doi.org/10.1016/0010-4
  4. Simulation log file is generated
  
 
-## **Input description**
+## **Input description**<a name="input_deck"></a>
  - Input data is structured in *blocks*
  - Each block starts with ``begin:<block_name>`` and ends with ``end:<block_name>``
  - The following blocks are available
