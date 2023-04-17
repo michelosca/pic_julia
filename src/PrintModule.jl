@@ -17,7 +17,7 @@
 
 module PrintModule
 
-using SharedData: System, Species, Collision
+using SharedData: System, Species, Collision, CollisionGroup
 using Constants: e
 using Printf
 
@@ -94,6 +94,23 @@ function PrintCollision(c::Collision)
     #for (energy, sigma) in zip(c.energy_data, c.cross_section_data)
     #    @printf("     %10.4e %10.4e\n",energy/e,sigma)
     #end
+end
+
+function PrintCollisionGroup(cgroup::CollisionGroup)
+
+    @printf("Collision group species: ")
+    for s in cgroup.colliding_species
+        @printf("%s ", s.name)
+    end
+    @printf("\n")
+
+    @printf(" - Max. super-particle weight: %10.4e\n", cgroup.part_weight_max)
+    @printf(" - Max. g*sigma:               %10.4e\n", cgroup.gsigma_max)
+    @printf(" - Reduces mass:               %10.4e\n", cgroup.reduced_mass)
+    for c in cgroup.collision_list
+        PrintCollision(c)
+    end
+
 end
 
 end

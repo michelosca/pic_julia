@@ -23,7 +23,7 @@ using Constants: e
 using PrintModule: PrintMessage, PrintErrorMessage, PrintCollision
 using SharedData: System, Species, Collision, CollisionGroup
 using Printf
-using Tools: GetUnits!
+using Tools: GetUnits!, linear_interpolation
 
 
 function StartFile_MCC!(read_step::Int64, collision_list::Vector{Collision},
@@ -104,6 +104,7 @@ function EndFile_MCC!(read_step::Int64,
         if system.mcc
             SetupCollisionGroups!(collisiongroup_list, collision_list,
                 species_list, system)
+            SetGroupParameters!(collisiongroup_list)
         end
     end
 
@@ -125,8 +126,8 @@ function LoadCollisions!(collision_list::Vector{Collision}
         try
             table_list = readdir(path)
         catch
-            message = "No collisions for " * species.name
-            PrintMessage(system, message)
+            #message = "No collisions for " * species.name
+            #PrintMessage(system, message)
             continue
         end
 
@@ -539,6 +540,7 @@ function SetupCollisionGroups!(collisiongroup_list::Vector{CollisionGroup},
     end
 end
 
+
 function InitCollisionGroup()
     coll_group = CollisionGroup()
     coll_group.collision_list = Collision[]
@@ -549,6 +551,78 @@ function InitCollisionGroup()
     coll_group.reduced_mass = 0.0
 
     return coll_group
+end
+
+
+function SetGroupParameters!(collisiongroup_list::Vector{CollisionGroup})
+
+    for group in collisiongroup_list
+
+        # Set reduced mass
+        mass_sum = 0.0
+        mass_prod = 1.0
+
+        # Set maximum super-particle weight
+        max_weight = 0.0
+
+        for s in group.colliding_species
+            print("Mass sepecies ",s.name," is ", s.mass,"\n")
+            mass_sum += s.mass
+            mass_prod *= s.mass
+            if !s.is_background_species
+                max_weight = maximum([max_weight, s.weight])
+            end
+        end
+        group.reduced_mass = mass_prod / mass_sum
+        group.part_weight_max = max_weight
+
+        # Convert energy data into speed data
+        mu = group.reduced_mass
+        for collision in group.collision_list
+            collision.energy_data = map(x -> sqrt(2.0 *x / mu), collision.energy_data)
+        end
+
+        # Set maximum g*sigma product
+        gsigma_max = 0.0
+
+        # Loop over all collisions in the group
+        for c1 in group.collision_list
+            
+
+            # Loop over all energy/g data and compute total g-sigma value
+            #plot!(p, c1.energy_data, c1.cross_section_data.*c1.energy_data, label=c1.name, lw = 2)
+            for g in c1.energy_data
+                sigma = 0.0
+
+                # Use the current g-value to evaluate the total cross-section value
+                for c2 in group.collision_list
+
+                    # If g value outsite bondaries takes last cross-section value
+                    if g <= c2.energy_data[1] 
+                        sigma += c2.cross_section_data[1]
+                    elseif g >= c2.energy_data[end]
+                        sigma += c2.cross_section_data[end]
+                    else
+                        g_min = c2.energy_data[1]
+                        for (i,g2) in enumerate(c2.energy_data[2:end])
+                            g_max = g2 
+                            if g >= g_min && g <= g_max
+                                sigma_min = c2.cross_section_data[i]
+                                sigma_max = c2.cross_section_data[i+1]
+                                interp_data = [g_min, g_max, sigma_min, sigma_max]
+                                sigma += linear_interpolation(interp_data, g)
+                                break
+                            end
+                            g_min = g_max
+                        end
+                    end
+                end
+                gsigma = g * sigma
+                gsigma_max = maximum([gsigma_max, gsigma])
+            end
+        end
+        group.gsigma_max = gsigma_max
+    end
 end
 
 end

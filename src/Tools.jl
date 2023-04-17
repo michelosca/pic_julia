@@ -184,4 +184,15 @@ function parse_boundary(var::Union{String,SubString{String}})
     return bc_id
 end
 
+function linear_interpolation(data::Vector{Float64}, x::Float64)
+    x_min = data[1]
+    x_max = data[2]
+    y_min = data[3]
+    y_max = data[4]
+    m = (y_max - y_min) / (x_max - x_min)
+    n = y_min - x_min * m
+    y = x * m + n 
+    return y
+end
+
 end

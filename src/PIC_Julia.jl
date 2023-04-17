@@ -9,10 +9,9 @@ using ParticleIntegrator: IntegrateParticlesPhaseSpace!
 using Tools: RealocateParticlesToGridList!
 using Tools: RealocateParticlesToMainList!
 using Outputs: GenerateOutputs! 
-
-using TestModule: test_species_densities, test_plot_field
-using Constants: c_field_electric, c_field_pot, c_field_rho
 using Constants: c_error
+
+using PrintModule: PrintCollisionGroup
 
 using PrintModule: PrintCollision
 
@@ -41,12 +40,8 @@ function run_pic(input_file::String)
         , collision_list
     )
 
-    for coll_grup in collision_list
-        print("Collision group ", coll_grup.colliding_species[1].name,"\n")
-        print("Collision group ", coll_grup.colliding_species[2].name,"\n")
-        for c in coll_grup.collision_list
-            PrintCollision(c)
-        end
+    for coll_group in collision_list
+        PrintCollisionGroup(coll_group)
     end
 
     if errcode == c_error

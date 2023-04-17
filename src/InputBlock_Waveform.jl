@@ -52,13 +52,14 @@ function StartWaveformBlock!(read_step::Int64, waveform_list::Vector{Waveform},
             system.bc_field_max == c_bc_open &&
             system.bc_part_min == c_bc_open &&
             system.bc_part_max == c_bc_open
-        waveform = InitWaveform(system)
-        push!(waveform_list, waveform)
-        errcode = 0
-    else
-        message = "Waveform requires open field and particle boundary conditions"
-        PrintErrorMEssage(system, message)
-        return errcode
+            waveform = InitWaveform(system)
+            push!(waveform_list, waveform)
+            errcode = 0
+        else
+            message = "Waveform requires open field and particle boundary conditions"
+            PrintErrorMessage(system, message)
+            return errcode
+        end
     end
     return errcode
 end
