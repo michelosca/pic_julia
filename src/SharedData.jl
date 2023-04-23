@@ -151,6 +151,8 @@ mutable struct Collision
 
     diagnostic::Vector{Int64}
 
+    collfunction
+
     Collision() = new()
 end
 

@@ -152,11 +152,13 @@ function EndSpeciesBlock!(read_step::Int64, species_list::Vector{Species},
             return c_error
         end
 
-        # Normalize spatial distribution function
-        dist = species.dens_spatial_distribution
-        norm_factor = GetDistributionNormalizationFactor(dist, system)
-        norm_expr = Expr(:call,:/,dist,norm_factor)
-        species.dens_spatial_distribution = norm_expr
+        if !species.is_background_species
+            # Normalize spatial distribution function
+            dist = species.dens_spatial_distribution
+            norm_factor = GetDistributionNormalizationFactor(dist, system)
+            norm_expr = Expr(:call,:/,dist,norm_factor)
+            species.dens_spatial_distribution = norm_expr
+        end
     end
 
     return errcode 
@@ -206,6 +208,18 @@ function EndFile_Species!(read_step::Int64, species_list::Vector{Species},
             if errcode == c_error
                 err_message = @sprintf(" While loading %s", species.name)
                 PrintErrorMessage(system, err_message)
+            end
+        end
+    else
+        # Load secondary lists
+        if system.mcc
+            for species in species_list
+                species.particle_grid_list = Vector{Particle}[]
+                # Note that particle_grid_list is ncells-1 long!
+                # (because cells surrounding the boundaries are not necessary)
+                for i in range(1, system.ncells-1, step=1)
+                    push!(species.particle_grid_list, Particle[])
+                end
             end
         end
     end
@@ -262,11 +276,6 @@ function LoadParticles!(species::Species, system::System)
             x_1 = x_grid[i]
         end
         
-        species.particle_grid_list = Vector{Particle}[]
-        species.particle_grid_list = Vector{Particle}[]
-        for i in range(1, system.ncells, step=1)
-            push!(species.particle_grid_list, Particle[])
-        end
     end
 
     return errcode

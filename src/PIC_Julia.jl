@@ -1,3 +1,20 @@
+# Copyright (C) 2023 Michel Osca Engelbrecht
+#
+# This file is part of PIC Julia.
+#
+# PIC Julia is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# PIC Julia is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with GM Julia. If not, see <https://www.gnu.org/licenses/>.
+
 module PIC_Julia 
 
 using SharedData: System, Species, OutputBlock, Waveform, CollisionGroup
@@ -10,10 +27,10 @@ using Tools: RealocateParticlesToGridList!
 using Tools: RealocateParticlesToMainList!
 using Outputs: GenerateOutputs! 
 using Constants: c_error
+using NeutralCollisions: NeutralCollisions!
 
 using PrintModule: PrintCollisionGroup
-
-using PrintModule: PrintCollision
+using PrintModule: PrintErrorMessage
 
 function run_pic(input_file::String)
 
@@ -39,13 +56,16 @@ function run_pic(input_file::String)
         , waveform_list
         , collision_list
     )
-
-    for coll_group in collision_list
-        PrintCollisionGroup(coll_group)
+    if errcode == c_error
+        PrintErrorMessage(system,"Setting up input data")
+        return c_error
     end
 
-    if errcode == c_error
-        return c_error
+
+    if system.mcc
+        for coll_group in collision_list
+            PrintCollisionGroup(coll_group)
+        end
     end
 
     # Load electric and magnetic field data
@@ -93,8 +113,11 @@ function run_pic(input_file::String)
         # -> particle BC applied while integrating Phase-Space 
 
         # 6.- Collisions: 6.1.- gather particles in cells
-        RealocateParticlesToGridList!(species_list, system)
-        RealocateParticlesToMainList!(species_list)
+        if system.mcc
+            RealocateParticlesToGridList!(species_list, system)
+            errcode = NeutralCollisions!(collision_list, species_list, system)
+            RealocateParticlesToMainList!(species_list)
+        end
 
         # 7.- Update time
         system.time += system.dt

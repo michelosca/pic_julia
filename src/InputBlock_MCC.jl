@@ -24,6 +24,8 @@ using PrintModule: PrintMessage, PrintErrorMessage, PrintCollision
 using SharedData: System, Species, Collision, CollisionGroup
 using Printf
 using Tools: GetUnits!, linear_interpolation
+using CollisionTypes: ElasticScattering!, InelasticScattering!
+using CollisionTypes: Ionization!, ChargeExchange!
 
 
 function StartFile_MCC!(read_step::Int64, collision_list::Vector{Collision},
@@ -47,9 +49,9 @@ function StartMCCBlock!(read_step::Int64, collision_list::Vector{Collision},
     errcode = c_error
 
     if (read_step == 1)
+        system.mcc = true
         errcode = 0
     elseif read_step == 2
-        system.mcc = true
         errcode = LoadCollisions!(collision_list, species_list, system)
         if (errcode == c_error)
             message = @sprintf("While loading collisions")
@@ -277,9 +279,15 @@ function ParseProcess!(var::Union{String, SubString{String}},
     collision_reaction_and_type = SplitString(var, ',')
     coll_reaction_str = collision_reaction_and_type[1]
 
-    ### Collision type (name)
+    ### Collision type (name and function)
     coll_type_str = collision_reaction_and_type[2]
-    collision.name = coll_type_str
+    collision.name = strip(coll_type_str)
+    errcode = LinkCollisionFunction!(collision)
+    if errcode == c_error
+        message = "Link collision function failed"
+        PrintErrorMessage(system, message)
+        return errcode
+    end
 
     # Find two reaction parts separated by "->" 
     reactant_and_product = SplitString(coll_reaction_str, "->")
@@ -566,7 +574,6 @@ function SetGroupParameters!(collisiongroup_list::Vector{CollisionGroup})
         max_weight = 0.0
 
         for s in group.colliding_species
-            print("Mass sepecies ",s.name," is ", s.mass,"\n")
             mass_sum += s.mass
             mass_prod *= s.mass
             if !s.is_background_species
@@ -603,18 +610,13 @@ function SetGroupParameters!(collisiongroup_list::Vector{CollisionGroup})
                     elseif g >= c2.energy_data[end]
                         sigma += c2.cross_section_data[end]
                     else
-                        g_min = c2.energy_data[1]
-                        for (i,g2) in enumerate(c2.energy_data[2:end])
-                            g_max = g2 
-                            if g >= g_min && g <= g_max
-                                sigma_min = c2.cross_section_data[i]
-                                sigma_max = c2.cross_section_data[i+1]
-                                interp_data = [g_min, g_max, sigma_min, sigma_max]
-                                sigma += linear_interpolation(interp_data, g)
-                                break
-                            end
-                            g_min = g_max
-                        end
+                        ix_min = findlast(x -> x <= g, c2.energy_data)
+                        ix_max = ix_min + 1
+                        g_min = c2.energy_data[ix_min]
+                        g_max = c2.energy_data[ix_max]
+                        s_min = c2.cross_section_data[ix_min]
+                        s_max = c2.cross_section_data[ix_max]
+                        interp_data = [g_min , g_max, s_min, s_max]
                     end
                 end
                 gsigma = g * sigma
@@ -623,6 +625,27 @@ function SetGroupParameters!(collisiongroup_list::Vector{CollisionGroup})
         end
         group.gsigma_max = gsigma_max
     end
+end
+
+
+function LinkCollisionFunction!(collision::Collision)
+
+    errcode = 0
+
+    name = lowercase(collision.name)
+    if name == "elastic" || name == "isotropic"
+        collision.collfunction = ElasticScattering!
+    elseif name == "backscat"
+        collision.collfunction = ChargeExchange! 
+    elseif name == "excitation"
+        collision.collfunction = InelasticScattering! 
+    elseif name == "ionization"
+        collision.collfunction = Ionization! 
+    else
+        errcode = c_error
+    end
+
+    return errcode
 end
 
 end

@@ -97,11 +97,13 @@ function RealocateParticlesToGridList!(species_list::Vector{Species}, system::Sy
         if species.is_background_species
             continue
         end
-        for i in range(1,ncells,step=1)
 
-            # -1.5/0.5 substraction because i needs a -1 shift
-            grid_min = (i - 1.5)*dx + x_min
-            grid_max = (i - 0.5)*dx + x_min 
+        # Loop until ncells-1 because particle_grid_list is ncells-1 long
+        for i in range(1,ncells-1,step=1)
+
+            # Cell boundaries 
+            grid_min = (i - 1.0)*dx + x_min
+            grid_max = i*dx + x_min 
             indexes = findall(
                 x -> (x.pos >= grid_min) & (x.pos <= grid_max),
                 species.particle_list)
