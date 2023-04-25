@@ -17,6 +17,10 @@
 
 module PIC_Julia 
 
+push!(LOAD_PATH, "./src/housekeeping")
+push!(LOAD_PATH, "./src/collisions")
+push!(LOAD_PATH, "./src/input_blocks")
+
 using SharedData: System, Species, OutputBlock, Waveform, CollisionGroup
 using Inputs: SetupInputData!
 using GridData: GetTotalChargeDensity
