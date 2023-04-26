@@ -1,6 +1,5 @@
 module SharedData 
 
-
 mutable struct Particle
     pos::Float64
     vel::Vector{Float64}

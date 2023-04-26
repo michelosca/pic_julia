@@ -174,9 +174,10 @@ function ReadLine!(str::String, read_step::Int64,
             species_list, system, output_list, constants, waveform_list,
             collision_list)
         if (errcode == c_error)
-            print("***WARNING*** Entry in ", block_name,
+            print("***ERROR*** Entry in ", block_name,
                 "-block has not been located\n")
             print("  - Input entry: ", name ," = ",var ,"\n")
+            return errcode
         end
     else
         errcode = 0

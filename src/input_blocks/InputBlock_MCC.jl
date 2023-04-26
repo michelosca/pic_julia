@@ -530,6 +530,7 @@ function SetupCollisionGroups!(collisiongroup_list::Vector{CollisionGroup},
 
 
     for collision in collision_list
+        collision.diagnostic = zeros(system.ncells-1)
         create_group = true
         for group in collisiongroup_list
             if collision.reactants == group.colliding_species

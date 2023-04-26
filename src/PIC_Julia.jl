@@ -65,7 +65,6 @@ function run_pic(input_file::String)
         return c_error
     end
 
-
     if system.mcc
         for coll_group in collision_list
             PrintCollisionGroup(coll_group)
@@ -92,7 +91,8 @@ function run_pic(input_file::String)
     #UpdateMagneticField!(magnetic_field, system)
 
     # 03.- Output initial conditions
-    GenerateOutputs!(output_list, species_list, system, electric_potential, electric_field)
+    GenerateOutputs!(output_list, species_list, system, electric_potential
+        , electric_field, collision_list)
 
     while system.step < system.step_end
 
@@ -128,7 +128,8 @@ function run_pic(input_file::String)
         system.step += 1
 
         # 8.- Output data
-        GenerateOutputs!(output_list, species_list, system, electric_potential, electric_field)
+        GenerateOutputs!(output_list, species_list, system, electric_potential
+            , electric_field, collision_list)
 
     end
 

@@ -23,7 +23,7 @@ using Constants: c_o_phase_space, c_o_neutral_collisions
 using Constants: c_dir_x, c_dir_y, c_dir_z, c_dir_none
 using SharedData: Species, System, OutputBlock, OutputDataStruct
 using Tools: GetUnits!
-using PrintModule: PrintErrorMessage
+using PrintModule: PrintErrorMessage, PrintWarningMessage
 
 
 function StartFile_Output!(read_step::Int64, output_list::Vector{OutputBlock},
@@ -149,8 +149,13 @@ function ReadOutputEntry!(name::SubString{String}, var::SubString{String},
             var_list = SplitVariableString(var)
 
             data_struct = OutputDataStruct() 
-            Initialize_OutputDataStruct!(data_struct, name, p_id, var_list,
-                o_block, species_list, system)
+            errcode = Initialize_OutputDataStruct!(data_struct, name, p_id,
+                var_list, o_block, species_list, system)
+            if errcode == c_error
+                message = "While initializing OutputDataStruct"
+                PrintErrorMessage(system, message)
+                return errcode
+            end
             push!(o_block.param_list, data_struct)
             return 0
         end
@@ -160,8 +165,13 @@ function ReadOutputEntry!(name::SubString{String}, var::SubString{String},
             var_list = SplitVariableString(var)
 
             data_struct = OutputDataStruct() 
-            Initialize_OutputDataStruct!(data_struct, name, p_id, var_list,
-                o_block, species_list, system)
+            errcode = Initialize_OutputDataStruct!(data_struct, name, p_id,
+                var_list, o_block, species_list, system)
+            if errcode == c_error
+                message = "While initializing OutputDataStruct"
+                PrintErrorMessage(system, message)
+                return errcode
+            end
             push!(o_block.param_list, data_struct)
             return 0
         end
@@ -171,8 +181,13 @@ function ReadOutputEntry!(name::SubString{String}, var::SubString{String},
             var_list = SplitVariableString(var)
 
             data_struct = OutputDataStruct() 
-            Initialize_OutputDataStruct!(data_struct, name, p_id, var_list,
-                o_block, species_list, system)
+            errcode = Initialize_OutputDataStruct!(data_struct, name, p_id,
+                var_list, o_block, species_list, system)
+            if errcode == c_error
+                message = "While initializing OutputDataStruct"
+                PrintErrorMessage(system, message)
+                return errcode
+            end
             push!(o_block.param_list, data_struct)
             return 0
         end
@@ -182,8 +197,29 @@ function ReadOutputEntry!(name::SubString{String}, var::SubString{String},
             var_list = SplitVariableString(var)
 
             data_struct = OutputDataStruct() 
-            Initialize_OutputDataStruct!(data_struct, name, p_id, var_list,
-                o_block, species_list, system)
+            errcode = Initialize_OutputDataStruct!(data_struct, name, p_id,
+                var_list, o_block, species_list, system)
+            if errcode == c_error
+                message = "While initializing OutputDataStruct"
+                PrintErrorMessage(system, message)
+                return errcode
+            end
+            push!(o_block.param_list, data_struct)
+            return 0
+        end
+
+        if name == "neutral_collisions" || "collisions"
+            p_id = c_o_neutral_collisions
+            var_list = SplitVariableString(var)
+
+            data_struct = OutputDataStruct() 
+            errcode = Initialize_OutputDataStruct!(data_struct, name, p_id,
+                var_list, o_block, species_list, system)
+            if errcode == c_error
+                message = "While initializing OutputDataStruct"
+                PrintErrorMessage(system, message)
+                return errcode
+            end
             push!(o_block.param_list, data_struct)
             return 0
         end
@@ -277,8 +313,10 @@ function EndFile_Output!(read_step::Int64, output_list::Vector{OutputBlock},
 end
 
 function Initialize_OutputDataStruct!(data_struct::OutputDataStruct,
-    name::Union{String, SubString{String}}, p_id::Int64, var_list::Vector{String}, o_block::OutputBlock,
-    species_list::Vector{Species}, system::System)
+    name::Union{String, SubString{String}}, p_id::Int64, var_list::Vector{String},
+    o_block::OutputBlock, species_list::Vector{Species}, system::System)
+
+    errcode = 0
 
     # Identify the output parameter by its ID and name
     data_struct.id = p_id
@@ -295,6 +333,12 @@ function Initialize_OutputDataStruct!(data_struct::OutputDataStruct,
         data_struct.species_name = "all" 
     elseif s_id == c_o_none_species
         data_struct.species_name = "N/A"
+        if data_struct.id == c_o_phase_space ||
+            data_struct.id == c_o_density
+            message = data_struct.name * " should be defined with species name or 'all'"
+            PrintErrorMessage(system, message)
+            return c_error
+        end
     elseif s_id > 0
         data_struct.species_name = species_list[s_id].name 
     end
@@ -303,9 +347,10 @@ function Initialize_OutputDataStruct!(data_struct::OutputDataStruct,
     # - averaged data need to be buffed
     # - particle probe data is buffed
     if (o_block.averaged) &&
-        (data_struct.parameter_id != c_o_phase_space) &&
-        (data_struct.parameter_id != c_o_probe)
-        # particle phase-space is the only parameter which is not averaged
+        (data_struct.id != c_o_phase_space) &&
+        (data_struct.id != c_o_probe) &&
+        (data_struct.id != c_o_neutral_collisions) #averaged neutrals are set up later in PostInputSetup
+        # particle phase-space and probe are the only parameter which is not averaged
 
         # The length of the data is given by the number of cells
         ncells = system.ncells
@@ -324,6 +369,7 @@ function Initialize_OutputDataStruct!(data_struct::OutputDataStruct,
         end
     end
 
+    return errcode
 end
 
 function SplitVariableString(var::Union{String, SubString{String}})

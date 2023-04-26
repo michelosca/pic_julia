@@ -7,91 +7,30 @@ using Constants: c_o_density, c_o_potential, c_o_electric_field, c_o_probe
 using Constants: c_o_phase_space, c_o_neutral_collisions
 using Constants: c_dir_x, c_dir_y, c_dir_z
 using Constants: c_bc_open, c_bc_periodic
-using SharedData: System, Field, Species
+using SharedData: System, Field, Species, CollisionGroup
 using SharedData: OutputBlock, OutputDataStruct
 using PrintModule: PrintErrorMessage
 
 function GenerateOutputs!(output_list::Vector{OutputBlock},
     species_list::Vector{Species}, system::System, electric_potential::Vector{Float64},
-    electric_field::Field)
+    electric_field::Field, collgroup_list::Vector{CollisionGroup})
 
     step = system.step 
     for o_block in output_list
-        #if o_block.averaged
-        #    av_start = o.block.step_av_start
-        #    av_end = o.block.step_av_end
-        #    average_on = (step >= av_start) && (step <= av_end) 
-        #    if average_on
-        #        BuffAveragedData!(o_block, system, pot, Efield)
-        #    end
-        #end
+        if o_block.averaged
+            av_start = o.block.step_av_start
+            av_end = o.block.step_av_end
+            average_on = (step >= av_start) && (step <= av_end) 
+            if average_on
+                BuffAveragedData!(o_block, system, species_list, electric_potential,
+                electric_field, collgroup_list)
+            end
+        end
 
         dump_step = o_block.step_dump
         if step >= dump_step
-            filename = @sprintf("%s/%s%05i.h5", system.folder, o_block.name, o_block.file_id)
-            h5open(filename,"w") do fid
 
-                # SYSTEM parameters
-                errcode = WriteSystemDataToH5!(fid, system)
-                if errcode == c_error
-                    err_message = @sprintf("While writing system data in output block %s", o_block.name)
-                    PrintErrorMessage(system, err_message)
-                    return errcode
-                end
-
-                for param in o_block.param_list
-
-                    # DENSITY data
-                    if param.id == c_o_density
-                        errcode = WriteDensityToH5!(fid, species_list, param, system)
-                        if errcode == c_error
-                            err_message = @sprintf("While writing density data in output block %s", o_block.name)
-                            PrintErrorMessage(system, err_message)
-                            return errcode
-                        end
-                    end
-
-                    # ELECTRIC POTENTIAL data
-                    if param.id == c_o_potential
-                        errcode = WriteElectricPotentialToH5!(fid, electric_potential, param, system)
-                        if errcode == c_error
-                            err_message = @sprintf("While writing electric potential data in output block %s", o_block.name)
-                            PrintErrorMessage(system, err_message)
-                            return errcode
-                        end
-                    end
-
-                    # ELECTRIC field data
-                    if param.id == c_o_electric_field
-                        errcode = WriteElectricFieldToH5!(fid, electric_field, param, system)
-                        if errcode == c_error
-                            err_message = @sprintf("While writing electric field data in output block %s", o_block.name)
-                            PrintErrorMessage(system, err_message)
-                            return errcode
-                        end
-                    end
-
-                    # Phase-Space data
-                    if param.id == c_o_phase_space
-                        for species in species_list
-                            if species.is_background_species
-                                continue
-                            elseif (param.species_id == species.id) ||
-                                (param.species_id == c_o_all_species)
-                                errcode = WritePhaseSpaceToH5!(fid, species, param)
-                                if errcode == c_error
-                                    err_message = @sprintf("While writing %s phase-space data in output block %s",
-                                        species.name, o_block.name)
-                                    PrintErrorMessage(system, err_message)
-                                    return errcode
-                                end
-                            end
-                        end
-                    end
-
-                end # Loop over OutputBlockStruct in current OutputBlock:o_block
-
-            end # HDF5 file is closed
+            DumpOutputData(o_block, system, species_list, electric_potential, electric_field, collgroup_list)
 
             # Update o_block parameters
             o_block.file_id += 1
@@ -108,6 +47,121 @@ function GenerateOutputs!(output_list::Vector{OutputBlock},
 
     end # Loop over OutputBlocks in output_list
 
+end
+
+function BuffAveragedData!(o_block::OutputBlock, system::System,
+    species_list::Vector{Species}, electric_potential::Vector{Float64},
+    electric_field::Field, collgroup_list::Vector{CollisionGroup})
+
+    for param in o_block.param_list
+
+        # DENSITY data
+        if param.id == c_o_density
+            if param.species_id == c_o_all_species
+                # Store all species densities
+                n_species = 1
+                for s in species_list
+                    if !s.is_background_species
+                        param.data[:, n_species] += s.dens
+                        n_species += 1
+                    end
+                end
+            else
+                # Store just one single species density
+                for s in species_list
+                    if s.is_background
+                        continue
+                    elseif s.id == param.species_id
+                        param.data[:,1] += s.dens
+                        break
+                    end
+                end
+            end
+        end
+    end
+
+end
+
+function DumpOutputData(o_block::OutputBlock, system::System,
+    species_list::Vector{Species}, electric_potential::Vector{Float64},
+    electric_field::Field, collgroup_list::Vector{CollisionGroup})
+
+    filename = @sprintf("%s/%s%05i.h5", system.folder, o_block.name, o_block.file_id)
+    h5open(filename,"w") do fid
+
+        # SYSTEM parameters
+        errcode = WriteSystemDataToH5!(fid, system)
+        if errcode == c_error
+            err_message = @sprintf("While writing system data in output block %s", o_block.name)
+            PrintErrorMessage(system, err_message)
+            return errcode
+        end
+
+        for param in o_block.param_list
+
+            # DENSITY data
+            if param.id == c_o_density
+                errcode = WriteDensityToH5!(fid, species_list, param, system)
+                if errcode == c_error
+                    err_message = @sprintf("While writing density data in output block %s", o_block.name)
+                    PrintErrorMessage(system, err_message)
+                    return errcode
+                end
+            end
+
+            # ELECTRIC POTENTIAL data
+            if param.id == c_o_potential
+                errcode = WriteElectricPotentialToH5!(fid, electric_potential, param, system)
+                if errcode == c_error
+                    err_message = @sprintf("While writing electric potential data in output block %s", o_block.name)
+                    PrintErrorMessage(system, err_message)
+                    return errcode
+                end
+            end
+
+            # ELECTRIC field data
+            if param.id == c_o_electric_field
+                errcode = WriteElectricFieldToH5!(fid, electric_field, param, system)
+                if errcode == c_error
+                    err_message = @sprintf("While writing electric field data in output block %s", o_block.name)
+                    PrintErrorMessage(system, err_message)
+                    return errcode
+                end
+            end
+
+            # Phase-Space data
+            if param.id == c_o_phase_space
+                print("generate PS outputs\n")
+                for species in species_list
+                    if species.is_background_species
+                        continue
+                    elseif (param.species_id == species.id) ||
+                        (param.species_id == c_o_all_species)
+                        print(" - no background species\n")
+                        errcode = WritePhaseSpaceToH5!(fid, species, param)
+                        if errcode == c_error
+                            err_message = @sprintf("While writing %s phase-space data in output block %s",
+                                species.name, o_block.name)
+                            PrintErrorMessage(system, err_message)
+                            return errcode
+                        end
+                    end
+                end
+            end
+
+            # COLLISIONS data
+            if param.id == c_o_neutral_collisions
+                errcode = WriteNeutralCollisionsToH5!(fid, collgroup_list, param, system)
+                if errcode == c_error
+                    err_message = @sprintf("While writing neutral collisions in output block %s", o_block.name)
+                    PrintErrorMessage(system, err_message)
+                    return errcode
+                end
+            end
+
+
+        end # Loop over OutputBlockStruct in current OutputBlock:o_block
+    end # HDF5 file is closed
 end
 
 function WriteDensityToH5!(fid::HDF5.File, species_list::Vector{Species},
@@ -249,6 +303,7 @@ function WritePhaseSpaceToH5!(fid::HDF5.File, species::Species,
     errcode = c_error
 
     # Open particle group
+    print("   create particle group\n")
     g_name = "Particles"
     if haskey(fid, g_name)
         g = fid[g_name]
@@ -298,6 +353,51 @@ function WritePhaseSpaceToH5!(fid::HDF5.File, species::Species,
         errcode = 0
     end
 
+    return errcode
+end
+
+function WriteNeutralCollisionsToH5!(fid::HDF5.File, collgroup_list::Vector{CollisionGroup},
+    param::OutputDataStruct, system::System)
+
+    errcode = c_error
+
+    ncells = system.ncells - 1
+
+    g_name = "Neutral_Collisions"
+    if haskey(fid, g_name)
+        g = fid[g_name]
+    else
+        g = create_group(fid, "Neutral Collisions")
+        # Add specific grid because NC use a cell less
+        dset = create_dataset(g, "NC_Grid", Float64,(ncells,))
+        dx = system.dx
+        x_min = system.x_min + 0.5*dx
+        x_max = system.x_max - 0.5*dx
+        x = map(x -> x, LinRange(x_min,x_max,ncells) )
+        write(dset, x )
+    end
+    
+    # Load NC to H5 file
+    for cgroup in collgroup_list
+        species_combination = ""
+        for (i,s) in enumerate(cgroup.colliding_species)
+            if i == length(cgroup.colliding_species)
+                species_combination *= s.name
+            else
+                species_combination *= s.name * ":"
+            end
+        end
+        g1 = create_group(g, species_combination)
+
+        for coll in cgroup.collision_list
+            dset = create_dataset(g1, coll.name, Float64,(ncells,))
+
+            write(dset, coll.diagnostic)
+            errcode = 0
+        end
+    end
+
+    errcode = 0
     return errcode
 end
 
