@@ -18,12 +18,14 @@ function GenerateOutputs!(output_list::Vector{OutputBlock},
     step = system.step 
     for o_block in output_list
         if o_block.averaged
-            av_start = o.block.step_av_start
-            av_end = o.block.step_av_end
-            average_on = (step >= av_start) && (step <= av_end) 
-            if average_on
+            av_start = o_block.step_av_start
+            av_end = o_block.step_av_end
+            buffer_on = (step >= av_start) && (step <= av_end) 
+            average_flag = step == av_end
+
+            if buffer_on 
                 BuffAveragedData!(o_block, system, species_list, electric_potential,
-                electric_field, collgroup_list)
+                electric_field, collgroup_list, average_flag)
             end
         end
 
@@ -38,9 +40,9 @@ function GenerateOutputs!(output_list::Vector{OutputBlock},
             o_block.time_dump += o_block.dt
             if o_block.averaged
                 o_block.step_av_start += o_block.step_jump
-                o_block.step_av_end += o_block.step_av_start + o_block.step_av
+                o_block.step_av_end   = o_block.step_av_start + o_block.step_av
                 o_block.time_av_start += o_block.dt
-                o_block.time_av_end += o_block.time_av_start + o_block.dt_av
+                o_block.time_av_end   = o_block.time_av_start + o_block.dt_av
             end
 
         end
@@ -51,18 +53,30 @@ end
 
 function BuffAveragedData!(o_block::OutputBlock, system::System,
     species_list::Vector{Species}, electric_potential::Vector{Float64},
-    electric_field::Field, collgroup_list::Vector{CollisionGroup})
+    electric_field::Field, collgroup_list::Vector{CollisionGroup}, average_flag::Bool)
+
+    if average_flag
+        step_range = Float64(o_block.step_av_end - o_block.step_av_start + 1)
+    end
 
     for param in o_block.param_list
 
         # DENSITY data
         if param.id == c_o_density
+            c_min = system.cell_min
+            c_max = system.cell_max
             if param.species_id == c_o_all_species
                 # Store all species densities
                 n_species = 1
                 for s in species_list
                     if !s.is_background_species
-                        param.data[:, n_species] += s.dens
+                        param.data[:, n_species] += s.dens[c_min:c_max]
+                        
+                        # If last buffer step, average over the n steps
+                        if average_flag
+                            param.data ./= step_range
+                        end
+
                         n_species += 1
                     end
                 end
@@ -72,7 +86,11 @@ function BuffAveragedData!(o_block::OutputBlock, system::System,
                     if s.is_background
                         continue
                     elseif s.id == param.species_id
-                        param.data[:,1] += s.dens
+                        param.data[:,1] += s.dens[c_min:c_max]
+                        # If last buffer step, average over the n steps
+                        if average_flag
+                            param.data ./= step_range
+                        end
                         break
                     end
                 end
@@ -131,13 +149,11 @@ function DumpOutputData(o_block::OutputBlock, system::System,
 
             # Phase-Space data
             if param.id == c_o_phase_space
-                print("generate PS outputs\n")
                 for species in species_list
                     if species.is_background_species
                         continue
                     elseif (param.species_id == species.id) ||
                         (param.species_id == c_o_all_species)
-                        print(" - no background species\n")
                         errcode = WritePhaseSpaceToH5!(fid, species, param)
                         if errcode == c_error
                             err_message = @sprintf("While writing %s phase-space data in output block %s",
@@ -303,7 +319,6 @@ function WritePhaseSpaceToH5!(fid::HDF5.File, species::Species,
     errcode = c_error
 
     # Open particle group
-    print("   create particle group\n")
     g_name = "Particles"
     if haskey(fid, g_name)
         g = fid[g_name]
@@ -367,7 +382,7 @@ function WriteNeutralCollisionsToH5!(fid::HDF5.File, collgroup_list::Vector{Coll
     if haskey(fid, g_name)
         g = fid[g_name]
     else
-        g = create_group(fid, "Neutral Collisions")
+        g = create_group(fid, "Neutral_Collisions")
         # Add specific grid because NC use a cell less
         dset = create_dataset(g, "NC_Grid", Float64,(ncells,))
         dx = system.dx

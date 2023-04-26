@@ -113,8 +113,8 @@ mutable struct OutputBlock
     zero_pad::Int64
     time_dump::Float64
     step_dump::Int64
-    time_av_start::Int64
-    time_av_end::Int64
+    time_av_start::Float64
+    time_av_end::Float64
     step_av_start::Int64
     step_av_end::Int64
 

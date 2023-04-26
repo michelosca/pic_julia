@@ -23,7 +23,7 @@ using EvaluateExpressions: ReplaceExpressionValues
 using Tools: linear_interpolation
 using PrintModule: PrintErrorMessage
 
-using Random: rand, randn
+using Random: rand, randn, shuffle!
 using LinearAlgebra: norm
 
 function NeutralCollisions!(coll_list::Vector{CollisionGroup}, species_list::Vector{Species}, system::System)
@@ -100,19 +100,21 @@ function NeutralCollisions!(coll_list::Vector{CollisionGroup}, species_list::Vec
             #   3.1.- Set species and point to particle lists
             species1 = coll_group.colliding_species[1]
             if species1.is_background_species
-                part_list1 = GenerateBackgroundPartList(species1, N_coll_max, x_pos)
+                grid_list1 = GenerateBackgroundPartList(species1, N_coll_max, x_pos)
             else
-                part_list1 = rand(species1.particle_grid_list[cell], N_coll_max)
+                shuffle!(species1.particle_grid_list[cell])
+                grid_list1 = species1.particle_grid_list[cell]
             end
             species2 = coll_group.colliding_species[2]
             if species2.is_background_species
-                part_list2 = GenerateBackgroundPartList(species2, N_coll_max, x_pos)
+                grid_list2 = GenerateBackgroundPartList(species2, N_coll_max, x_pos)
             else
-                part_list2 = rand(species2.particle_grid_list[cell], N_coll_max)
+                shuffle!(species2.particle_grid_list[cell])
+                grid_list2 = species2.particle_grid_list[cell]
             end
 
             #   3.3.- Loop N_coll_max collisions
-            for (part1, part2) in zip(part_list1, part_list2) 
+            for (item, (part1, part2)) in enumerate(zip(grid_list1, grid_list2)) 
 
                 # 4.- COMPUTE COLLISION TYPE
                 #   4.1.- Velocity difference
@@ -157,7 +159,7 @@ function NeutralCollisions!(coll_list::Vector{CollisionGroup}, species_list::Vec
 
                 end
 #                print("  - Cross sections ", cross_section_data,"\n")
-                cross_section_total = sum(cross_section_data)
+                #cross_section_total = sum(cross_section_data)
 
                 #   4.4.- Compute maximum collision energy
                 P_data = g * cross_section_data / gsigma_max * f_B
@@ -173,11 +175,11 @@ function NeutralCollisions!(coll_list::Vector{CollisionGroup}, species_list::Vec
 #                    print("  - ", colltype.name," ", P_min," - ", P_max,"\n")
                     if R1 >= P_min && R1 < P_max
                         # Run this collision
-                        colltype.collfunction(coll_group, colltype, part1, part2, g)
-                        break
-
+                        colltype.collfunction(coll_group, colltype, part1,
+                            part2, g, item, cell)
                         # Add diagnostic
-
+                        colltype.diagnostic[cell] += 1
+                        break
                     end
                     P_min = P_max
                 end  # Collision types

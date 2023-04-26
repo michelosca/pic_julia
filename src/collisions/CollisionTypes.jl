@@ -22,7 +22,7 @@ using Random: rand
 using LinearAlgebra: norm
 
 function ChargeExchange!(collgroup::CollisionGroup, coll::Collision,
-    part1::Particle, part2::Particle, g::Float64)
+    part1::Particle, part2::Particle, g::Float64, item::Int64, cell::Int64)
 
     vel1 = part1.vel
     part1.vel = part2.vel
@@ -33,7 +33,7 @@ end
 
 
 function ElasticScattering!(collgroup::CollisionGroup, coll::Collision,
-    part1::Particle, part2::Particle, g::Float64)
+    part1::Particle, part2::Particle, g::Float64, item::Int64, cell::Int64)
     
     # Species 1
     s1 = collgroup.colliding_species[1]
@@ -66,7 +66,7 @@ end
 
 
 function InelasticScattering!(collgroup::CollisionGroup, coll::Collision,
-    part1::Particle, part2::Particle, g::Float64)
+    part1::Particle, part2::Particle, g::Float64, item::Int64, cell::Int64)
     
     # Species 1
     s1 = collgroup.colliding_species[1]
@@ -101,52 +101,85 @@ end
 
 
 function Ionization!(collgroup::CollisionGroup, coll::Collision,
-    part1::Particle, part2::Particle, g::Float64)
+    part1::Particle, part2::Particle, g::Float64, item::Int64, cell::Int64)
 
-    # Species 1
-    s1 = collgroup.colliding_species[1]
-    m1 = s1.mass
+    # Set species
+    electrons = nothing
+    neutrals = nothing
+    ions = nothing
+    for (b,s) in zip(coll.species_balance, coll.species)
+        if b == 1 && s.charge < 0.0
+            electrons = s
+            continue
+        elseif b == -1
+            neutrals = s
+            continue
+        else
+            ions = s
+            continue
+        end
+    end
 
-    # Species 2
-    s2 = collgroup.colliding_species[2]
-    m2 = s2.mass
-
-    # Total mass
-    m_total = m1 + m2
-    # Reduced mass
+    # Set particles
+    e_part = nothing
+    n_part = nothing
+    for (i,s) in enumerate(collgroup.colliding_species)
+        if i == 1
+            if s.id == electrons.id
+                e_part = part1
+            else
+                n_part = part1
+            end
+        else
+            if s.id == electrons.id
+                e_part = part2
+            else
+                n_part = part2
+            end
+        end
+    end
+            
+    # Mass
+    me = electrons.mass
+    mn = neutrals.mass
+    m_total = me + mn
     mu = collgroup.reduced_mass
+    # Centre of mass (CM) velocity
+    vel_cm = (e_part.vel * me + n_part.vel * mn) / m_total
 
     # Post-collision energy excess
     E_threshold = coll.energy_threshold
     E_excess = 0.5 * mu * g * g - E_threshold
-    u_e_excess = sqrt(2.0 * E_excess / m1)
+    u_e_excess = sqrt(2.0 * E_excess / me)
 
     # Electron post-coll speed (CM frame of reference)
     R1 = rand()
     u_e1 = sqrt(R1) * u_e_excess
     u_e2 = sqrt(1-R1) * u_e_excess
 
-    # Centre of mass (CM) velocity
-    vel_cm = (part1.vel * m1 + part2.vel * m2) / m_total
-
     # Existing electrons
     r3 = rand(3)
     r = r3 / norm(r3)
-    part1.vel = vel_cm .+ u_e1 * r
+    e_part.vel = vel_cm .+ u_e1 * r
 
     # New species 
-    #  - Remove neutral
     #  - New electron
     r3 = rand(3)
     r = r3 / norm(r3)
     new_electron = Particle()
-    new_electron.pos = neutral.pos
+    new_electron.pos = n_part.pos
     new_electron.vel = vel_cm .+ u_e2 * r
+    push!(electrons.particle_grid_list[cell], new_electron)
     #  - New ion
-    mass_ratio = m_electron / m_neutral
+    mass_ratio = me/ mn
     new_ion = Particle()
-    new_ion.pos = neutral.pos
-    new_ion.vel = vel_cm * (1 - mass_ratio) .- m_ratio * (u_e1 .+ u_e2)
+    new_ion.pos = n_part.pos
+    new_ion.vel = vel_cm * (1 - mass_ratio) .- mass_ratio * (u_e1 .+ u_e2)
+    push!(ions.particle_grid_list[cell], new_ion)
+    #  - Remove neutral
+    if !neutrals.is_background_species
+        deleteat!(neutrals.particle_grid_list[cell], item)
+    end
 
 end
 

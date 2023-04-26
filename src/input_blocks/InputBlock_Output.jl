@@ -114,7 +114,7 @@ function ReadOutputEntry!(name::SubString{String}, var::SubString{String},
             return 0
         end
         
-        if name == "step_jump"
+        if name == "step_jump" || name == "step"
             o_block.step_jump = parse(Int64, var)
             return 0
         end
@@ -129,7 +129,7 @@ function ReadOutputEntry!(name::SubString{String}, var::SubString{String},
             return 0
         end
         
-        if name == "averaged"
+        if name == "averaged" || name == "average"
             o_block.averaged = parse(Bool, var)
             return 0
         end
@@ -280,22 +280,34 @@ function EndOutputBlock!(read_step::Int64, output_list::Vector{OutputBlock},
             # Check average time range
             if o_block.step_av <= 0
                 if o_block.dt_av > 0.0
-                    o_block.step_av = round(Int64, o_block.dt_av / system.dt)
+                    if o_block.dt_av > o_block.dt
+                        message = "Sample time (dt) must be >= dt_average"
+                        PrintErrorMessage(system, message)
+                        return c_error
+                    else
+                        o_block.step_av = round(Int64, o_block.dt_av / system.dt)
+                    end
                 else
                     PrintErrorMessage(system, "Output average time must be defined positive")
                     return c_error
                 end
             else
-                o_block.dt_av = o_block.step_av * system.dt
+                if o_block.step_av > o_block.step_jump
+                    message = "Sample step (dt) must be >= step_average"
+                    PrintErrorMessage(system, message)
+                    return c_error
+                else
+                    o_block.dt_av = o_block.step_av * system.dt
+                end
             end
 
             # Set average time parameters
             o_block.step_av_start = o_block.step_start
             o_block.step_av_end = o_block.step_av_start + o_block.step_av
             o_block.step_dump = o_block.step_av_end
-            o_block.time_av_start = round(Int64, o_block.step_av_start * system.dt)
-            o_block.time_av_end = round(Int64, o_block.step_av_end * system.dt)
-            o_block.time_dump = round(Int64, o_block.step_dump * system.dt)
+            o_block.time_av_start = Float64(o_block.step_av_start) * system.dt
+            o_block.time_av_end = Float64(o_block.step_av_end) * system.dt
+            o_block.time_dump = Float64(o_block.step_dump) * system.dt
         else
             o_block.step_dump = o_block.step_start
         end
@@ -309,6 +321,20 @@ end
 function EndFile_Output!(read_step::Int64, output_list::Vector{OutputBlock},
     system::System)
     errcode = 0
+
+    if read_step == 2
+        for (i,i_block) in enumerate(output_list)
+            for (j,j_block) in enumerate(output_list)
+                if i == j
+                    continue
+                elseif i_block.name == j_block.name
+                    message = "Different output block share the same name"
+                    PrintErrorMessage(system, message)
+                    return c_error
+                end
+            end
+        end
+    end
     return errcode
 end
 
