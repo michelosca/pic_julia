@@ -8,6 +8,7 @@ using SharedData: Species, System
 using Constants: c_field_electric, c_field_pot, c_field_rho
 using Constants: c_bc_open
 using Constants: epsilon_0, e, me, kb
+using Tools: linear_interpolation
 
 function test_species_densities(species_list::Vector{Species}, system::System)
 
@@ -249,28 +250,149 @@ function MCC_test()
         , legend = true 
     )
     ls_list = [:solid, :dot]
-    for i in 0:1
+    for i in 1:1
         filename = @sprintf("stdout%05i.h5",i)
         h5open("sim/"* filename,"r") do fid
-            system = read(fid, "System")
-            x = system["Grid"]
 
-            # Plot densities
-            dens_struct = read(fid, "Number_Density")
-            for (species, dens) in dens_struct
-                if species == "electrons"
-                    plot!(p, x, dens
-                        , linewidth = 2
-                        , label = species
-                        , xlims = (x[1], x[end])
-                        , ls = ls_list[i+1]
+            # NC grid distribution
+            NC_struct = read(fid, "Neutral Collisions")
+            x = NC_struct["NC_Grid"]
+
+            # Plot collision rate 
+            for (speciescomb, set) in NC_struct
+                print(speciescomb,"\n")
+                if speciescomb == "NC_Grid"
+                    continue
+                end
+                for colltype in keys(set)
+                    print("  - ", colltype,"\n")
+                    plot!(x, set[colltype]
+                        , label = speciescomb * "-" *colltype
                     )
                 end
+
             end
+            #for (species, dens) in dens_struct
+            #    if species == "electrons"
+            #        plot!(p, x, dens
+            #            , linewidth = 2
+            #            , label = species
+            #            , xlims = (x[1], x[end])
+            #            , ls = ls_list[i+1]
+            #        )
+            #    end
+            #end
         end
     end
-    fig_name = @sprintf("dens_mcc.png")
-    savefig(p, "sim/"*fig_name)
+    #fig_name = @sprintf("dens_mcc.png")
+    #savefig(p, "sim/"*fig_name)
+    return p
+end
+
+function RateCoefficient(energy_data::Vector{Float64},
+    cross_section_data::Vector{Float64})
+    # From Lieberman and Lichtenberg (2005). Chapter 3. Section 3.5. Equation 3.5.2
+    # Cross section convolution with Maxwellian distribution
+    me = 9.10938188e-31
+    kb = 1.380649e-23
+    qe = 1.602176634e-19
+    eV_to_K = qe/kb
+
+    Te_eV_data= 10.0 .^ (-1:0.1:3)
+    K_data = Float64[]
+    for Te_eV in Te_eV_data
+
+        # Generate velocity range for Maxwelllian DF
+        # Set velocity limits based on current Te_eV
+        v_max = sqrt(2 * (Te_eV*qe) / me) * 5
+        dv = v_max / 100
+        Te = Te_eV * eV_to_K
+        v_list = 0:dv:v_max
+
+        # Convolution sigma and Maxwellian DF
+        K = 0.0
+        for v_point in v_list[2:end]
+            v = v_point - 0.5*dv
+            # Interpolate cross-section data
+            e = 0.5 * me * v * v
+            if e >= energy_data[end]
+                sigma = cross_section_data[end]
+            elseif e <= energy_data[1]
+                sigma = cross_section_data[1]
+            else
+                ix_min = findlast(x -> x <= e, energy_data)
+                ix_max = ix_min + 1#findlast( x -> x > g, g_data)
+                e_min = energy_data[ix_min]
+                e_max = energy_data[ix_max]
+                s_min = cross_section_data[ix_min]
+                s_max = cross_section_data[ix_max]
+                interp_list = [e_min , e_max, s_min, s_max]
+                sigma = linear_interpolation(interp_list, e)
+            end
+
+            # Integration bit
+            K += sigma * v^3 * exp(- me * v * v / 2 / kb / Te) 
+        end
+        K *= (me / 2 / pi / kb / Te)^(3/2) * 4 * pi * dv
+        push!(K_data, K)
+    end
+
+
+    return Te_eV_data, K_data
+end
+
+function ReadCrossSectionData(filepath::String, energy_units::Float64,
+    sigma_units::Float64)
+
+    energy_data = Float64[]
+    sigma_data = Float64[]
+    open(filepath) do file
+        while ! eof(file)
+            str = strip(readline(file))
+            ix = findfirst('\t', str)
+            energy_str = strip(str[1:ix-1])
+            sigma_str = strip(str[ix+1:end])
+
+            energy = parse(Float64, energy_str) * energy_units
+            push!(energy_data, energy)
+    
+            # Cross section
+            sigma = parse(Float64, sigma_str) * sigma_units
+            push!(sigma_data, sigma)
+        end
+    end
+
+    return energy_data, sigma_data
+end
+
+function GenerateRateCoefficients()
+    main = "/home/moe505/Documents/pic_julia/tests/rate_coefficient_Ar_test/"
+    fe_elast = "e_Ar_elastic.table"
+    fe_excit = "e_Ar_excitation.table"
+    fe_ioniz = "e_Ar_ionization.table"
+
+    data_list = [fe_elast, fe_excit, fe_ioniz]
+
+    p = plot()
+    for data_path in data_list
+        e_data, s_data = ReadCrossSectionData(main * data_path, e, 1.0)
+        Te_list, K_list = RateCoefficient(e_data, s_data)
+        plot!(p, Te_list, K_list
+            , lw = 2
+            , label = data_path
+        )
+    end
+
+    plot!(p
+        , size = (500, 300)
+        , frame = :box
+        , xlims = (1.e-1, 1.e3)
+        , ylims = (1.e-22, 1.e-12)
+        , yscale=:log10
+        , xscale=:log10
+        , legend = :bottomright
+    )
+    return p
 end
 
 end
