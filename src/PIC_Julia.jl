@@ -27,6 +27,7 @@ using GridData: GetTotalChargeDensity
 using ElectricMagneticFields: UpdateElectricField!, GetElectricPotential
 using ElectricMagneticFields: InitializeElectricField, InitializeMagneticField
 using ParticleIntegrator: IntegrateParticlesPhaseSpace!
+using ParticleIntegrator: ParticlesPhasePushBack!
 using Tools: RealocateParticlesToGridList!
 using Tools: RealocateParticlesToMainList!
 using Outputs: GenerateOutputs! 
@@ -76,7 +77,7 @@ function run_pic(input_file::String)
     magnetic_field = InitializeMagneticField(system)
 
     # 01 - push back particles velocity
-    #
+    ParticlesPhasePushBack!(species_list, system, electric_field, magnetic_field)
 
     # 02 - Initialize fields: densities, charge densities, potential, E/B-fields
     ### 1.- Get charge density
