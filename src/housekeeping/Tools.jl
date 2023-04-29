@@ -121,10 +121,10 @@ end
 function RealocateParticlesToMainList!(species_list::Vector{Species})
 
     for species in species_list
-        if species.is_background_species
-            continue
+        if !species.is_background_species
+            species.particle_list = reduce(vcat, species.particle_grid_list)
+            species.particle_count = length(species.particle_list)
         end
-        species.particle_list = reduce(vcat, species.particle_grid_list)
     end
 end
 
