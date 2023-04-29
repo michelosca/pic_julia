@@ -412,9 +412,13 @@ function ParseColumns!(var::Union{String, SubString{String}},
     if e_str == "eV"
         collision.energy_units = e
     else
-        message = "Energy units not recognized"
-        PrintErrorMessage(system, message)
-        return c_error
+        try
+            collision.energy_units = parse(Float64, e_str)
+        catch
+            message = "Energy units not recognized"
+            PrintErrorMessage(system, message)
+            return c_error
+        end
     end
     
     s_str_1 = SplitString(s_str_0, '(')
@@ -423,9 +427,13 @@ function ParseColumns!(var::Union{String, SubString{String}},
     if s_str == "m2"
         collision.cross_section_units = 1.0
     else
-        message = "Cross section units not recognized"
-        PrintErrorMessage(system, message)
-        return c_error
+        try
+            collision.cross_section_units = parse(Float64, s_str)
+        catch
+            message = "Cross section units not recognized"
+            PrintErrorMessage(system, message)
+            return c_error
+        end
     end
 
     return errcode
