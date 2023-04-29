@@ -365,7 +365,7 @@ function ReadCrossSectionData(filepath::String, energy_units::Float64,
     return energy_data, sigma_data
 end
 
-function GenerateRateCoefficients()
+function MCC_RateCoefficients()
     main = "/home/moe505/Documents/pic_julia/tests/rate_coefficient_Ar_test/"
     fe_elast = "e_Ar_elastic.table"
     fe_excit = "e_Ar_excitation.table"
@@ -374,6 +374,8 @@ function GenerateRateCoefficients()
     data_list = [fe_elast, fe_excit, fe_ioniz]
 
     p = plot()
+
+    # Analytic results
     for data_path in data_list
         e_data, s_data = ReadCrossSectionData(main * data_path, e, 1.0)
         Te_list, K_list = RateCoefficient(e_data, s_data)
@@ -382,6 +384,73 @@ function GenerateRateCoefficients()
             , label = data_path
         )
     end
+
+    # Simulation results
+    Lx = 0.025
+    W_e = 7.e8
+    ncells = 400
+    npart_per_cell = 100
+    Lx = 0.025
+    e_dens = W_e * npart_per_cell * ncells / Lx
+    Ar_dens = 2.069e21
+    # 1.- Gather data
+    K_elastic = 0.0
+    K_excitation = 0.0
+    K_ionization = 0.0
+    n_files = 101
+    for i in 0:(n_files-1)
+        filename = @sprintf("stdout%05i.h5",i)
+        h5open("sim/"* filename,"r") do fid
+            nc = read(fid, "Neutral_Collisions")
+            system = fid["System"]
+            dt = attrs(system)["dt"]
+            dx = attrs(system)["dx"]
+
+            # Electron super-part. weight
+            #part = fid["Particles"]
+            #part_e = part["e"]
+            #W_e = attrs(part_e)["weight"]
+
+            nc_e = nc["e:Ar"]
+            # Elastic scattering
+            nc_e_elastic    = sum(nc_e["Elastic"])
+            K_elastic += nc_e_elastic/Lx / dt * W_e / Ar_dens / e_dens
+
+            nc_e_excitation = sum(nc_e["Excitation"])
+            K_excitation += nc_e_excitation/Lx / dt * W_e / Ar_dens / e_dens
+
+            nc_e_ionization = sum(nc_e["Ionization"])
+            K_ionization += nc_e_ionization/Lx / dt * W_e / Ar_dens / e_dens
+        end
+    end
+    K_elastic /= n_files
+    K_excitation /= n_files
+    K_ionization /= n_files
+    print("K elastic    ", K_elastic,"\n")
+    print("K excitation ", K_excitation,"\n")
+    print("K ionization ", K_ionization,"\n")
+
+    Te_eV = 15
+    scatter!(p, [Te_eV], [K_elastic]
+        , markersize = 4
+        , marker = :circle
+        , markercolor = 1
+        , markerstrokecolor = 1
+    )
+
+    scatter!(p, [Te_eV], [K_excitation]
+        , markersize = 4
+        , marker = :circle
+        , markercolor = 2
+        , markerstrokecolor = 2
+    )
+
+    scatter!(p, [Te_eV], [K_ionization]
+        , markersize = 4
+        , marker = :circle
+        , markercolor = 3
+        , markerstrokecolor = 3
+    )
 
     plot!(p
         , size = (500, 300)
