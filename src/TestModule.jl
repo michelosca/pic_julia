@@ -1,9 +1,12 @@
 module TestModule
 
 using Plots
+using Plots.Measures
 using HDF5
 using Printf
+using LaTeXStrings
 
+push!(LOAD_PATH, "./src/housekeeping")
 using SharedData: Species, System
 using Constants: c_field_electric, c_field_pot, c_field_rho
 using Constants: c_bc_open
@@ -372,84 +375,103 @@ function MCC_RateCoefficients()
     fe_ioniz = "e_Ar_ionization.table"
 
     data_list = [fe_elast, fe_excit, fe_ioniz]
+    label_list = ["Elastic scattering", "Excitation", "Ionization"]
 
     p = plot()
 
     # Analytic results
-    for data_path in data_list
+    for (data_path, label) in zip(data_list, label_list)
         e_data, s_data = ReadCrossSectionData(main * data_path, e, 1.0)
         Te_list, K_list = RateCoefficient(e_data, s_data)
         plot!(p, Te_list, K_list
             , lw = 2
-            , label = data_path
+            , label = label 
         )
     end
 
     # Simulation results
-    Lx = 0.025
-    W_e = 7.e8
-    ncells = 400
-    npart_per_cell = 100
-    Lx = 0.025
-    e_dens = W_e * npart_per_cell * ncells / Lx
     Ar_dens = 2.069e21
-    # 1.- Gather data
-    K_elastic = 0.0
-    K_excitation = 0.0
-    K_ionization = 0.0
-    n_files = 101
-    for i in 0:(n_files-1)
-        filename = @sprintf("stdout%05i.h5",i)
-        h5open("sim/"* filename,"r") do fid
-            nc = read(fid, "Neutral_Collisions")
-            system = fid["System"]
-            dt = attrs(system)["dt"]
-            dx = attrs(system)["dx"]
+    n_files = 100
 
-            # Electron super-part. weight
-            #part = fid["Particles"]
-            #part_e = part["e"]
-            #W_e = attrs(part_e)["weight"]
+    Te_eV_list = 10.0 .^ (-1:0.2:3)
+    K_elastic_list = Float64[]
+    K_excitat_list = Float64[]
+    K_ionizat_list = Float64[]
 
-            nc_e = nc["e:Ar"]
-            # Elastic scattering
-            nc_e_elastic    = sum(nc_e["Elastic"])
-            K_elastic += nc_e_elastic/Lx / dt * W_e / Ar_dens / e_dens
+    for Te_eV in Te_eV_list
 
-            nc_e_excitation = sum(nc_e["Excitation"])
-            K_excitation += nc_e_excitation/Lx / dt * W_e / Ar_dens / e_dens
-
-            nc_e_ionization = sum(nc_e["Ionization"])
-            K_ionization += nc_e_ionization/Lx / dt * W_e / Ar_dens / e_dens
+        eV_str = "eV"
+        fact = 1.0
+        if Te_eV < 10
+            eV_str = "meV"
+            fact = 1000.0
         end
-    end
-    K_elastic /= n_files
-    K_excitation /= n_files
-    K_ionization /= n_files
-    print("K elastic    ", K_elastic,"\n")
-    print("K excitation ", K_excitation,"\n")
-    print("K ionization ", K_ionization,"\n")
 
-    Te_eV = 15
-    scatter!(p, [Te_eV], [K_elastic]
+        K_elastic = 0.0
+        K_excitat = 0.0
+        K_ionizat = 0.0
+        for i in 1:n_files
+            filename = @sprintf("stdout%05i%s_%05i.h5"
+                ,round(Int64, Te_eV*fact)
+                ,eV_str
+                ,i
+            )
+            h5open("sim/"* filename,"r") do fid
+                nc = read(fid, "Neutral_Collisions")
+                system = fid["System"]
+                dt = attrs(system)["dt"]
+                grid = system["Grid"]
+                Lx = grid[end] - grid[1]
+
+                # Electron super-part. weight
+                part = fid["Particles"]
+                part_e = part["e"]
+                W_e = attrs(part_e)["weight"]
+                e_nparts = attrs(part_e)["part_count"]
+                e_dens = W_e * e_nparts / Lx
+
+                nc_e = nc["e:Ar"]
+                # Elastic scattering
+                nc_e_elastic    = sum(nc_e["Elastic"])
+                K_elastic += nc_e_elastic/Lx / dt * W_e / Ar_dens / e_dens
+
+                nc_e_excitation = sum(nc_e["Excitation"])
+                K_excitat += nc_e_excitation/Lx / dt * W_e / Ar_dens / e_dens
+
+                nc_e_ionization = sum(nc_e["Ionization"])
+                K_ionizat += nc_e_ionization/Lx / dt * W_e / Ar_dens / e_dens
+            end
+        end
+        K_elastic /= n_files
+        push!(K_elastic_list, K_elastic)
+        K_excitat /= n_files
+        push!(K_excitat_list, K_excitat)
+        K_ionizat /= n_files
+        push!(K_ionizat_list, K_ionizat)
+    end
+
+    scatter!(p, Te_eV_list, K_elastic_list 
         , markersize = 4
         , marker = :circle
         , markercolor = 1
         , markerstrokecolor = 1
+        , label = false
     )
 
-    scatter!(p, [Te_eV], [K_excitation]
+    scatter!(p, Te_eV_list, K_excitat_list 
         , markersize = 4
         , marker = :circle
         , markercolor = 2
         , markerstrokecolor = 2
+        , label = false
     )
 
-    scatter!(p, [Te_eV], [K_ionization]
+    scatter!(p, Te_eV_list, K_ionizat_list 
         , markersize = 4
         , marker = :circle
         , markercolor = 3
         , markerstrokecolor = 3
+        , label = false
     )
 
     plot!(p
@@ -460,7 +482,17 @@ function MCC_RateCoefficients()
         , yscale=:log10
         , xscale=:log10
         , legend = :bottomright
+        , ylabel = L"K\quad / \quad m^{3}s^{-1}"
+        , xlabel = L"T_e \quad / \quad eV"
+        , guidefontsize = 15
+        , tickfontsize = 12
+        , legendfontisze = 12
+        , bottommargin = 5mm
+        , rightmargin = 2mm
+        , topmargin = 2mm
     )
+
+    savefig(p, "sim/rate_coefficient_test_eAr.png")
     return p
 end
 
