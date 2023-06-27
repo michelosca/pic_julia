@@ -16,7 +16,11 @@ function GenerateOutputs!(output_list::Vector{OutputBlock},
     electric_field::Field, collgroup_list::Vector{CollisionGroup})
 
     step = system.step 
+
+    # Loop over output blocks
     for o_block in output_list
+
+        # In case output-block is averaging
         if o_block.averaged
             av_start = o_block.step_av_start
             av_end = o_block.step_av_end
@@ -24,12 +28,14 @@ function GenerateOutputs!(output_list::Vector{OutputBlock},
             average_flag = step == av_end
 
             if buffer_on 
+                # If step in between averaging steps -> add data to buffer
                 BuffAveragedData!(o_block, system, species_list, electric_potential,
-                electric_field, collgroup_list, average_flag)
+                    electric_field, collgroup_list, average_flag)
             end
         end
 
         dump_step = o_block.step_dump
+        # If step is beyod dump step -> generate output file
         if step >= dump_step
 
             DumpOutputData(o_block, system, species_list, electric_potential, electric_field, collgroup_list)
@@ -56,15 +62,18 @@ function BuffAveragedData!(o_block::OutputBlock, system::System,
     electric_field::Field, collgroup_list::Vector{CollisionGroup}, average_flag::Bool)
 
     if average_flag
+        # In case of last step -> compute the number of averaged steps
         step_range = Float64(o_block.step_av_end - o_block.step_av_start+1)
     end
 
+    c_min = system.cell_min
+    c_max = system.cell_max
+
+    # Loop over parameters to be averaged
     for param in o_block.param_list
 
         # DENSITY data
         if param.id == c_o_density
-            c_min = system.cell_min
-            c_max = system.cell_max
 
             # Cases: either average all species or just one single species
             n_species = 1
@@ -79,11 +88,27 @@ function BuffAveragedData!(o_block::OutputBlock, system::System,
                 end
             end
 
-            # If last buffer step, average over the n steps
-            if average_flag
-                param.data ./= step_range
+
+        # plasma POTENTIAL
+        elseif param.id == c_o_potential
+            if param.dir_id == c_dir_x
+                param.data += electric_potential[c_min:c_max]
             end
 
+        # ELECTRIC FIELD
+        elseif param.id == c_o_electric_field
+            if param.dir_id == c_dir_x
+                param.data += electric_field.x[c_min:c_max]
+            elseif param.dir_id == c_dir_y
+                param.data += electric_field.y[c_min:c_max]
+            elseif param.dir_id == c_dir_z
+                param.data += electric_field.z[c_min:c_max]
+            end
+        end
+
+        # If last buffer step, average over the n steps
+        if average_flag
+            param.data ./= step_range
         end
     end
 
@@ -118,7 +143,7 @@ function DumpOutputData(o_block::OutputBlock, system::System,
 
             # ELECTRIC POTENTIAL data
             if param.id == c_o_potential
-                errcode = WriteElectricPotentialToH5!(fid, electric_potential, param, system)
+                errcode = WriteElectricPotentialToH5!(fid, electric_potential, param, system, o_block.averaged)
                 if errcode == c_error
                     err_message = @sprintf("While writing electric potential data in output block %s", o_block.name)
                     PrintErrorMessage(system, err_message)
@@ -128,7 +153,7 @@ function DumpOutputData(o_block::OutputBlock, system::System,
 
             # ELECTRIC field data
             if param.id == c_o_electric_field
-                errcode = WriteElectricFieldToH5!(fid, electric_field, param, system)
+                errcode = WriteElectricFieldToH5!(fid, electric_field, param, system, o_block.averaged)
                 if errcode == c_error
                     err_message = @sprintf("While writing electric field data in output block %s", o_block.name)
                     PrintErrorMessage(system, err_message)
@@ -188,6 +213,7 @@ function WriteDensityToH5!(fid::HDF5.File, species_list::Vector{Species},
 
             if averaged
                 write(dset, param.data[:,n_species])
+                # Initialize buffer array with values of the current step
                 param.data[:,n_species] .= s.dens[c_min:c_max]
                 n_species += 1
             else
@@ -257,7 +283,7 @@ function WriteSystemDataToH5!(fid::HDF5.File, system::System)
 end
 
 function WriteElectricPotentialToH5!(fid::HDF5.File, pot::Vector{Float64},
-    param::OutputDataStruct, system::System)
+    param::OutputDataStruct, system::System, averaged::Bool)
 
     errcode = c_error
 
@@ -267,7 +293,13 @@ function WriteElectricPotentialToH5!(fid::HDF5.File, pot::Vector{Float64},
     g = create_group(fid, "Electric_Potential")
     if param.dir_id == c_dir_x
         dset = create_dataset(g, "Vx", Float64,(ncells,))
-        write(dset, pot[c_min:c_max])
+        if averaged
+            write(dset, param.data)
+            # Initialize buffer array with values of the current step
+            param.data .= pot[c_min:c_max]
+        else
+            write(dset, pot[c_min:c_max])
+        end
         errcode = 0
     end
 
@@ -276,7 +308,7 @@ function WriteElectricPotentialToH5!(fid::HDF5.File, pot::Vector{Float64},
 end
 
 function WriteElectricFieldToH5!(fid::HDF5.File, efield::Field,
-    param::OutputDataStruct, system::System)
+    param::OutputDataStruct, system::System, averaged::Bool)
 
     errcode = c_error
 
@@ -295,15 +327,33 @@ function WriteElectricFieldToH5!(fid::HDF5.File, efield::Field,
     # Write data
     if param.dir_id == c_dir_x
         dset = create_dataset(g, "Ex", Float64,(ncells,))
-        write(dset, efield.x[c_min:c_max])
+        if averaged
+            write(dset, param.data)
+            # Initialize buffer array with values of the current step
+            param.data .= efield.x[c_min:c_max]
+        else
+            write(dset, efield.x[c_min:c_max])
+        end
         errcode = 0
     elseif param.dir_id == c_dir_y
         dset = create_dataset(g, "Ey", Float64,(ncells,))
-        write(dset, efield.y[c_min:c_max])
+        if averaged
+            write(dset, param.data)
+            # Initialize buffer array with values of the current step
+            param.data .= efield.y[c_min:c_max]
+        else
+            write(dset, efield.y[c_min:c_max])
+        end
         errcode = 0
     elseif param.dir_id == c_dir_z
         dset = create_dataset(g, "Ez", Float64,(ncells,))
-        write(dset, efield.z[c_min:c_max])
+        if averaged
+            write(dset, param.data)
+            # Initialize buffer array with values of the current step
+            param.data .= efield.z[c_min:c_max]
+        else
+            write(dset, efield.z[c_min:c_max])
+        end
         errcode = 0
     end
 
