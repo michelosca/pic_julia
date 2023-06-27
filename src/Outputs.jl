@@ -56,7 +56,7 @@ function BuffAveragedData!(o_block::OutputBlock, system::System,
     electric_field::Field, collgroup_list::Vector{CollisionGroup}, average_flag::Bool)
 
     if average_flag
-        step_range = Float64(o_block.step_av_end - o_block.step_av_start + 1)
+        step_range = Float64(o_block.step_av_end - o_block.step_av_start+1)
     end
 
     for param in o_block.param_list
@@ -65,36 +65,25 @@ function BuffAveragedData!(o_block::OutputBlock, system::System,
         if param.id == c_o_density
             c_min = system.cell_min
             c_max = system.cell_max
-            if param.species_id == c_o_all_species
-                # Store all species densities
-                n_species = 1
-                for s in species_list
-                    if !s.is_background_species
-                        param.data[:, n_species] += s.dens[c_min:c_max]
-                        
-                        # If last buffer step, average over the n steps
-                        if average_flag
-                            param.data ./= step_range
-                        end
 
-                        n_species += 1
-                    end
-                end
-            else
-                # Store just one single species density
-                for s in species_list
-                    if s.is_background
-                        continue
-                    elseif s.id == param.species_id
-                        param.data[:,1] += s.dens[c_min:c_max]
-                        # If last buffer step, average over the n steps
-                        if average_flag
-                            param.data ./= step_range
-                        end
-                        break
-                    end
+            # Cases: either average all species or just one single species
+            n_species = 1
+            for s in species_list
+                if s.is_background_species
+                    continue
+                elseif param.species_id == c_o_all_species ||
+                    param.species_id == s.id
+                    param.data[:, n_species] += s.dens[c_min:c_max]
+                    
+                    n_species += 1
                 end
             end
+
+            # If last buffer step, average over the n steps
+            if average_flag
+                param.data ./= step_range
+            end
+
         end
     end
 
@@ -119,7 +108,7 @@ function DumpOutputData(o_block::OutputBlock, system::System,
 
             # DENSITY data
             if param.id == c_o_density
-                errcode = WriteDensityToH5!(fid, species_list, param, system)
+                errcode = WriteDensityToH5!(fid, species_list, param, system, o_block.averaged)
                 if errcode == c_error
                     err_message = @sprintf("While writing density data in output block %s", o_block.name)
                     PrintErrorMessage(system, err_message)
@@ -181,7 +170,7 @@ function DumpOutputData(o_block::OutputBlock, system::System,
 end
 
 function WriteDensityToH5!(fid::HDF5.File, species_list::Vector{Species},
-    param::OutputDataStruct, system::System)
+    param::OutputDataStruct, system::System, averaged::Bool)
 
     errcode = c_error
 
@@ -189,13 +178,21 @@ function WriteDensityToH5!(fid::HDF5.File, species_list::Vector{Species},
     c_min = system.cell_min
     c_max = system.cell_max
     g = create_group(fid, "Number_Density")
+    n_species = 1
     for s in species_list
         if s.is_background_species
             continue
         elseif (s.id == param.species_id) ||
             (param.species_id == c_o_all_species)
             dset = create_dataset(g, s.name, Float64,(ncells,))
-            write(dset, s.dens[c_min:c_max])
+
+            if averaged
+                write(dset, param.data[:,n_species])
+                param.data[:,n_species] .= s.dens[c_min:c_max]
+                n_species += 1
+            else
+                write(dset, s.dens[c_min:c_max])
+            end
             errcode = 0
         end
     end
