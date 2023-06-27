@@ -240,6 +240,14 @@ function EndSystemBlock!(read_step::Int64, system::System)
         system.cell_max = system.ncells + system.gc
 
         ### Temporal check
+        if system.t_end == 0
+            system.t_end = system.step_end * system.dt
+        end
+
+        if system.step_end == 0
+            system.step_end = round(Int64, system.t_end / system.dt)
+        end
+
         if system.t_end <= system.t_start
             PrintErrorMessage(system, "Simulation times must be t_end > t_start")
             errcode = c_error

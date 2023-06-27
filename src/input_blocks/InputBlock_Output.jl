@@ -376,7 +376,7 @@ function Initialize_OutputDataStruct!(data_struct::OutputDataStruct,
         (data_struct.id != c_o_phase_space) &&
         (data_struct.id != c_o_probe) &&
         (data_struct.id != c_o_neutral_collisions) #averaged neutrals are set up later in PostInputSetup
-        # particle phase-space and probe are the only parameter which is not averaged
+        # particle phase-space and probe are the only parameter which are not averaged
 
         # The length of the data is given by the number of cells
         ncells = system.ncells
