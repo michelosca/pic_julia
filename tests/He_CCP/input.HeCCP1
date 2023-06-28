@@ -30,7 +30,7 @@ end:species
 
 begin:species
   name = He+ 
-  mass = 4amu
+  mass = 4.003amu
   charge = 1
   part_per_cell = 512
   spatial_dist = 1.0
@@ -40,9 +40,9 @@ end:species
 
 begin:species
   name = He 
-  mass = 4amu
+  mass = 4.003amu
   charge = 0
-  spatial_dist = 1
+  spatial_dist = 1.0
   temp = 300
   dens = 9.64e20
   background = true

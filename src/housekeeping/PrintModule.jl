@@ -18,6 +18,8 @@
 module PrintModule
 
 using SharedData: System, Species, Collision, CollisionGroup
+using SharedData: Waveform
+using Constants: c_bc_x_min, c_bc_x_max
 using Constants: e
 using Printf
 
@@ -56,11 +58,32 @@ function PrintSpecies(system::System, species::Species)
         @printf(file, "%s- id: %i\n", tab_str1, species.id)
         @printf(file, "%s- mass: %g kg\n", tab_str1, species.mass)
         @printf(file, "%s- charge: %g C\n", tab_str1, species.charge)
+        @printf(file, "%s- initial density: %g m^-3\n", tab_str1, species.init_dens)
+        @printf(file, "%s- initial temp: %g K\n", tab_str1, species.init_temp)
         @printf(file, "%s- part. weight: %g\n", tab_str1, species.weight)
         @printf(file, "%s- particle count: %i\n", tab_str1, species.particle_count)
         @printf(file, "%s- is background: %s\n", tab_str1, species.is_background_species)
     end
 end
+
+function PrintWaveform(system::System, w::Waveform)
+
+    open(system.log_file,"a") do file
+        @printf(file,"Waveform\n")
+        @printf(file, "%s- Amplitude: %g V\n", tab_str1, w.amp)
+        @printf(file, "%s- Frequency: %g MHz\n", tab_str1, w.freq/1.e6)
+        if w.boundary == c_bc_x_max
+            b_str = "x-max"
+        elseif w.boundary == c_bc_x_min
+            b_str = "x-min"
+        end
+        @printf(file, "%s- Boundary: %s\n", tab_str1, b_str)
+        @printf(file, "%s- Start time: %g s\n", tab_str1, w.t_start)
+        @printf(file, "%s- End time: %g s\n", tab_str1, w.t_end)
+    end
+
+end
+
 
 function PrintCollision(system::System, c::Collision)
     open(system.log_file, "a") do file
@@ -128,38 +151,27 @@ function PrintCollisionGroup(system::System, cgroup::CollisionGroup)
 
 end
 
-function PrintPICJlabel(system::System)
+function PrintPICJlabel(system::System, print_to_log_file::Bool)
 
-    r = 251
-    g = 388
-    b = 847
-    print_rgb( r,  g, b, " __________________________      ________      ___________________________                                ______________________________________________ \n")
-    print_rgb( r,  g, b, "|                          |    |        |    |                           |                              |                                              |\n" )
-    print_rgb( r,  g, b, "|                          |    |        |    |                           |                              |                                              |\n" )
-    print_rgb( r,  g, b, "|         _________        |    |        |    |        ___________________|                              |__________________          __________________|\n" )
-    print_rgb( r,  g, b, "|        |        |        |    |        |    |        |                                                                    |        |                   \n")
-    print_rgb( r,  g, b, "|        |        |        |    |        |    |        |                                                                    |        |                   \n")
-    print_rgb( r,  g, b, "|        |        |        |    |        |    |        |                                                                    |        |                   \n")
-    print_rgb( r,  g, b, "|        |        |        |    |        |    |        |                                                                    |        |                   \n")
-    print_rgb( r,  g, b, "|        |        |        |    |        |    |        |                                                                    |        |                   \n")
-    print_rgb( r,  g, b, "|        |________|        |    |        |    |        |                                                                    |        |                   \n")
-    print_rgb( r,  g, b, "|                          |    |        |    |        |                        ________________                            |        |                   \n")
-    print_rgb( r,  g, b, "|                          |    |        |    |        |                       |                |                           |        |                   \n")
-    print_rgb( r,  g, b, "|         _________________|    |        |    |        |                       |                |                           |        |                   \n")
-    print_rgb( r,  g, b, "|        |                      |        |    |        |                       |________________|                           |        |                   \n")
-    print_rgb( r,  g, b, "|        |                      |        |    |        |                                                  ________          |        |                   \n")
-    print_rgb( r,  g, b, "|        |                      |        |    |        |                                                 |        |         |        |                   \n")
-    print_rgb( r,  g, b, "|        |                      |        |    |        |                                                 |        |         |        |                   \n")
-    print_rgb( r,  g, b, "|        |                      |        |    |        |                                                 |        |         |        |                   \n")
-    print_rgb( r,  g, b, "|        |                      |        |    |        |                                                 |        |         |        |                   \n")
-    print_rgb( r,  g, b, "|        |                      |        |    |        |__________________                               |        |_________|        |                   \n")
-    print_rgb( r,  g, b, "|        |                      |        |    |                           |                              |                           |                   \n")
-    print_rgb( r,  g, b, "|        |                      |        |    |                           |                              |                           |                   \n")
-    print_rgb( r,  g, b, "|________|                      |________|    |___________________________|                              |___________________________|                   \n\n")
-end
-
-function print_rgb(r, g, b, t::String)
-    print("\e[1m\e[38;2;$r;$g;$b;249m",t)
+    if print_to_log_file
+        open(system.log_file,"a") do file
+            @printf(file, "|        _           _       _ _(_)_     |  Particle-In-Cell code for Low Temperature Plasmas\n")
+            @printf(file, "|       (_)         (_)     | (_) (_)    |\n")
+            @printf(file, "|  ___   _  ___      _ _   _| |_  __ _   |  Documentation: https://github.com/michelosca/pic_julia.git\n") 
+            @printf(file, "| |  _ \\| |/ __|    | | | | | | |/ _` |  |\n")
+            @printf(file, "| | |_) | | (__     | | |_| | | | (_| |  |  Developer: M. Osca Engelbrecht, michel.osca@protonmail.com\n") 
+            @printf(file, "| |  __/|_|\\___|   _/ |\\__'_|_|_|\\__'_|  |\n")
+            @printf(file, "| |_|             |__/                   |\n\n")
+        end
+    else
+        @printf("|        _           _       _ _(_)_     |  Particle-In-Cell code for Low Temperature Plasmas\n")
+        @printf("|       (_)         (_)     | (_) (_)    |\n")
+        @printf("|  ___   _  ___      _ _   _| |_  __ _   |  Documentation: https://github.com/michelosca/pic_julia.git\n") 
+        @printf("| |  _ \\| |/ __|    | | | | | | |/ _` |  |\n")
+        @printf("| | |_) | | (__     | | |_| | | | (_| |  |  Developer: M. Osca Engelbrecht, michel.osca@protonmail.com\n") 
+        @printf("| |  __/|_|\\___|   _/ |\\__'_|_|_|\\__'_|  |\n")
+        @printf("| |_|             |__/                   |\n\n")
+    end
 end
 
 end

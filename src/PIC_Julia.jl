@@ -34,7 +34,7 @@ using Outputs: GenerateOutputs!
 using Constants: c_error
 using NeutralCollisions: NeutralCollisions!
 
-using PrintModule: PrintCollisionGroup, PrintSpecies
+using PrintModule: PrintCollisionGroup, PrintSpecies, PrintWaveform
 using PrintModule: PrintMessage, PrintErrorMessage, PrintPICJlabel
 
 function run_pic(input_file::String)
@@ -54,6 +54,9 @@ function run_pic(input_file::String)
     # Initialize collision list
     collision_list = CollisionGroup[]
 
+    # Print code label
+    PrintPICJlabel(system, false)
+
     errcode = SetupInputData!(input_file
         , species_list
         , system
@@ -66,11 +69,11 @@ function run_pic(input_file::String)
         PrintErrorMessage(system,"Setting up input data")
         return c_error
     else
-        PrintPICJlabel(system)
+        PrintPICJlabel(system, true)
         PrintMessage(system, "Simulation problem setup correctly")
     end
 
-    # Print species and MCC setup to log file
+    # Print species, waveforms and MCC setup to log file
     for s in species_list
         PrintSpecies(system,s)
     end
@@ -79,6 +82,10 @@ function run_pic(input_file::String)
         for coll_group in collision_list
             PrintCollisionGroup(system, coll_group)
         end
+    end
+    PrintMessage(system," ")
+    for waveform in waveform_list
+        PrintWaveform(system,waveform)
     end
 
     # Load electric and magnetic field data
