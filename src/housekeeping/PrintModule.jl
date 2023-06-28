@@ -21,6 +21,9 @@ using SharedData: System, Species, Collision, CollisionGroup
 using Constants: e
 using Printf
 
+global tab_str1 = "  "
+global tab_str2 = tab_str1 * tab_str1
+global tab_str3 = tab_str1 * tab_str1 * tab_str1
 
 function PrintErrorMessage(system::System, message::String)
 
@@ -46,71 +49,117 @@ function PrintMessage(system::System, message::String)
     @printf("%s\n", message)
 end
 
-function PrintSpecies(species::Species)
-    @printf("Species name: %s\n", species.name)
-    @printf("  - id: %i\n", species.id)
-    @printf("  - mass: %g kg\n", species.mass)
-    @printf("  - charge: %g C\n", species.charge)
-    @printf("  - part. weight: %g\n", species.weight)
-    @printf("  - particle count: %i\n", species.particle_count)
-    @printf("  - is background: %s\n", species.is_background_species)
+function PrintSpecies(system::System, species::Species)
+
+    open(system.log_file, "a") do file
+        @printf(file, "Species name: %s\n", species.name)
+        @printf(file, "%s- id: %i\n", tab_str1, species.id)
+        @printf(file, "%s- mass: %g kg\n", tab_str1, species.mass)
+        @printf(file, "%s- charge: %g C\n", tab_str1, species.charge)
+        @printf(file, "%s- part. weight: %g\n", tab_str1, species.weight)
+        @printf(file, "%s- particle count: %i\n", tab_str1, species.particle_count)
+        @printf(file, "%s- is background: %s\n", tab_str1, species.is_background_species)
+    end
 end
 
-function PrintCollision(c::Collision)
-    @printf("Collision name: %s\n", c.name)
-    coll_str = ""
-    r_len = length(c.reactants)
-    for (i,s) in enumerate(c.reactants)
-        coll_str *= s.name
-        if i < r_len
-            coll_str *= " + "
+function PrintCollision(system::System, c::Collision)
+    open(system.log_file, "a") do file
+        @printf(file, "%sCollision name: %s\n",tab_str1, c.name)
+        coll_str = ""
+        r_len = length(c.reactants)
+        for (i,s) in enumerate(c.reactants)
+            coll_str *= s.name
+            if i < r_len
+                coll_str *= " + "
+            end
         end
-    end
-    coll_str *= " -> "
-    p_len = length(c.products)
-    for (i,s) in enumerate(c.products)
-        coll_str *= s.name
-        if i < p_len
-            coll_str *= " + "
+        coll_str *= " -> "
+        p_len = length(c.products)
+        for (i,s) in enumerate(c.products)
+            coll_str *= s.name
+            if i < p_len
+                coll_str *= " + "
+            end
         end
-    end
-    @printf(" - Reaction equation: %s\n", coll_str)
-    species_str = ""
-    s_len = length(c.species)
-    for (i,s) in enumerate(c.species)
-        species_str *= "    -> " * s.name
-        species_str *= @sprintf(" - balance: %i", c.species_balance[i])
-        if i < s_len
-            species_str *= "\n"
+        @printf(file, "%s- Reaction equation: %s\n",tab_str2, coll_str)
+        species_str = ""
+        s_len = length(c.species)
+        for (i,s) in enumerate(c.species)
+            species_str *= tab_str3 *"-> " * s.name
+            species_str *= @sprintf(" - balance: %i", c.species_balance[i])
+            if i < s_len
+                species_str *= "\n"
+            end
         end
+        @printf(file, "%s- Involved species:\n%s\n",tab_str2, species_str)
+        
+        @printf(file, "%s- Energy threshold %g eV\n",tab_str2, c.energy_threshold / e)
+        @printf(file, "%s- Energy data length %i\n",tab_str2, length(c.energy_data))
+        @printf(file, "%s- Energy units %g\n",tab_str2, c.energy_units)
+        @printf(file, "%s- Cross-section data length %i\n",tab_str2, length(c.cross_section_data))
+        @printf(file, "%s- Cross section units %g\n",tab_str2, c.cross_section_units)
+        #for (energy, sigma) in zip(c.energy_data, c.cross_section_data)
+        #    @printf(file, "%s%10.4e %10.4e\n",tab_str3, tab_str,energy/e,sigma)
+        #end
     end
-    @printf(" - Involved species:\n%s\n", species_str)
-    
-    @printf(" - Energy threshold %g eV\n", c.energy_threshold / e)
-    @printf(" - Energy data length %i\n", length(c.energy_data))
-    @printf(" - Energy units %g\n", c.energy_units)
-    @printf(" - Cross-section data length %i\n", length(c.cross_section_data))
-    @printf(" - Cross section units %g\n", c.cross_section_units)
-    #for (energy, sigma) in zip(c.energy_data, c.cross_section_data)
-    #    @printf("     %10.4e %10.4e\n",energy/e,sigma)
-    #end
 end
 
-function PrintCollisionGroup(cgroup::CollisionGroup)
+function PrintCollisionGroup(system::System, cgroup::CollisionGroup)
 
-    @printf("Collision group species: ")
-    for s in cgroup.colliding_species
-        @printf("%s ", s.name)
+    open(system.log_file, "a") do file
+        @printf(file, "Collision group species: ")
+        for s in cgroup.colliding_species
+            @printf(file, "%s ", s.name)
+        end
+        @printf(file, "\n")
+
+        @printf(file, "%s- Max. super-particle weight: %10.4e\n", tab_str1, cgroup.part_weight_max)
+        @printf(file, "%s- Max. g*sigma:               %10.4e\n", tab_str1, cgroup.gsigma_max)
+        @printf(file, "%s- Reduces mass:               %10.4e\n", tab_str1, cgroup.reduced_mass)
     end
-    @printf("\n")
 
-    @printf(" - Max. super-particle weight: %10.4e\n", cgroup.part_weight_max)
-    @printf(" - Max. g*sigma:               %10.4e\n", cgroup.gsigma_max)
-    @printf(" - Reduces mass:               %10.4e\n", cgroup.reduced_mass)
     for c in cgroup.collision_list
-        PrintCollision(c)
+        PrintCollision(system,c)
     end
 
+    open(system.log_file, "a") do file
+        @printf(file, "\n")
+    end
+
+end
+
+function PrintPICJlabel(system::System)
+
+    r = 251
+    g = 388
+    b = 847
+    print_rgb( r,  g, b, " __________________________      ________      ___________________________                                ______________________________________________ \n")
+    print_rgb( r,  g, b, "|                          |    |        |    |                           |                              |                                              |\n" )
+    print_rgb( r,  g, b, "|                          |    |        |    |                           |                              |                                              |\n" )
+    print_rgb( r,  g, b, "|         _________        |    |        |    |        ___________________|                              |__________________          __________________|\n" )
+    print_rgb( r,  g, b, "|        |        |        |    |        |    |        |                                                                    |        |                   \n")
+    print_rgb( r,  g, b, "|        |        |        |    |        |    |        |                                                                    |        |                   \n")
+    print_rgb( r,  g, b, "|        |        |        |    |        |    |        |                                                                    |        |                   \n")
+    print_rgb( r,  g, b, "|        |        |        |    |        |    |        |                                                                    |        |                   \n")
+    print_rgb( r,  g, b, "|        |        |        |    |        |    |        |                                                                    |        |                   \n")
+    print_rgb( r,  g, b, "|        |________|        |    |        |    |        |                                                                    |        |                   \n")
+    print_rgb( r,  g, b, "|                          |    |        |    |        |                        ________________                            |        |                   \n")
+    print_rgb( r,  g, b, "|                          |    |        |    |        |                       |                |                           |        |                   \n")
+    print_rgb( r,  g, b, "|         _________________|    |        |    |        |                       |                |                           |        |                   \n")
+    print_rgb( r,  g, b, "|        |                      |        |    |        |                       |________________|                           |        |                   \n")
+    print_rgb( r,  g, b, "|        |                      |        |    |        |                                                  ________          |        |                   \n")
+    print_rgb( r,  g, b, "|        |                      |        |    |        |                                                 |        |         |        |                   \n")
+    print_rgb( r,  g, b, "|        |                      |        |    |        |                                                 |        |         |        |                   \n")
+    print_rgb( r,  g, b, "|        |                      |        |    |        |                                                 |        |         |        |                   \n")
+    print_rgb( r,  g, b, "|        |                      |        |    |        |                                                 |        |         |        |                   \n")
+    print_rgb( r,  g, b, "|        |                      |        |    |        |__________________                               |        |_________|        |                   \n")
+    print_rgb( r,  g, b, "|        |                      |        |    |                           |                              |                           |                   \n")
+    print_rgb( r,  g, b, "|        |                      |        |    |                           |                              |                           |                   \n")
+    print_rgb( r,  g, b, "|________|                      |________|    |___________________________|                              |___________________________|                   \n\n")
+end
+
+function print_rgb(r, g, b, t::String)
+    print("\e[1m\e[38;2;$r;$g;$b;249m",t)
 end
 
 end

@@ -34,8 +34,8 @@ using Outputs: GenerateOutputs!
 using Constants: c_error
 using NeutralCollisions: NeutralCollisions!
 
-using PrintModule: PrintCollisionGroup
-using PrintModule: PrintErrorMessage
+using PrintModule: PrintCollisionGroup, PrintSpecies
+using PrintModule: PrintMessage, PrintErrorMessage, PrintPICJlabel
 
 function run_pic(input_file::String)
 
@@ -61,14 +61,23 @@ function run_pic(input_file::String)
         , waveform_list
         , collision_list
     )
+
     if errcode == c_error
         PrintErrorMessage(system,"Setting up input data")
         return c_error
+    else
+        PrintPICJlabel(system)
+        PrintMessage(system, "Simulation problem setup correctly")
     end
 
+    # Print species and MCC setup to log file
+    for s in species_list
+        PrintSpecies(system,s)
+    end
+    PrintMessage(system," ")
     if system.mcc
         for coll_group in collision_list
-            PrintCollisionGroup(coll_group)
+            PrintCollisionGroup(system, coll_group)
         end
     end
 
