@@ -170,7 +170,6 @@ function ReadTableLine!(str::String, collision_list::Vector{Collision},
     # PARSE DATA
     if str == "-----------------------------"
         # This signals the start/end of the data reading
-        #print("Switch flag ", data_reading_flag,"\n")
         global data_reading_flag = ! data_reading_flag 
         return errcode
     elseif data_reading_flag
