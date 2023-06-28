@@ -1,0 +1,80 @@
+begin:system
+  ncells = 128
+  x_min = 0.0
+  x_max = 0.067
+  
+  dt = 1.8436578171091445e-10
+  step_end = 512000
+  
+  particle_bc_min = open 
+  particle_bc_max = open 
+  field_bc_min = open 
+  field_bc_max = open 
+end:system
+
+begin:species
+  name = e
+  mass = me
+  charge = -1
+  part_per_cell = 512
+  spatial_dist = 1.0
+  temp = 30000
+  dens = 2.56e14
+end:species
+
+begin:species
+  name = He+ 
+  mass = 4amu
+  charge = 1
+  part_per_cell = 512
+  spatial_dist = 1.0
+  temp = 300.0
+  dens = 2.56e14
+end:species
+
+begin:species
+  name = He 
+  mass = 4amu
+  charge = 0
+  spatial_dist = 1
+  temp = 300
+  dens = 9.64e20
+  background = true
+end:species
+
+begin:waveform
+  amplitude = 450
+  frequency_MHz = 13.56
+  waveform = sin(2pi*f*time)
+  boundary = x_min
+end:waveform
+
+begin:MCC
+end:MCC
+
+begin:output
+  name = control 
+  
+  number_density = all 
+  electric_potential = x
+  electric_field = x
+  phase_space = x, e
+  phase_space = x, He+
+  neutral_collisions = all_collisions
+  
+  step = 51200
+  step_start = 0
+end:output
+
+begin:output
+  name = av 
+  averaged = true
+  
+  number_density = all 
+  electric_potential = x
+  electric_field = x
+  
+  step = 12800
+  step_av = 12800
+  step_start = 499200
+end:output
