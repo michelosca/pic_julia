@@ -86,7 +86,7 @@ function StartSystemBlock!(read_step::Int64, system::System)
         # Generate a log file name
         now_stamp = Dates.now()
         log_num = Dates.format(now_stamp, "yyyymmddHHMMSS")
-        system.log_file = "JPIC_run_" * log_num * ".log"
+        system.log_file = "PICJ_run_" * log_num * ".log"
 
         errcode = 0
     elseif read_step == 2
