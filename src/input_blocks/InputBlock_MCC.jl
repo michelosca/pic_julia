@@ -59,11 +59,6 @@ function StartMCCBlock!(read_step::Int64, collision_list::Vector{Collision},
             return errcode  
         end
 
-        #for c in collision_list
-        #    PrintCollision(c)
-        #    print("\n\n")
-        #end
-
         errcode = 0
     end
     return errcode
@@ -175,7 +170,7 @@ function ReadTableLine!(str::String, collision_list::Vector{Collision},
     # PARSE DATA
     if str == "-----------------------------"
         # This signals the start/end of the data reading
-        #print("Switch flag ", data_flag,"\n")
+        #print("Switch flag ", data_reading_flag,"\n")
         global data_reading_flag = ! data_reading_flag 
         return errcode
     elseif data_reading_flag
@@ -446,6 +441,13 @@ function ReadTableData!(str::Union{String, SubString{String}}, collision::Collis
 
     str_strip = strip(str)
     sigma_and_energy = SplitString(str_strip, '\t')
+    if length(sigma_and_energy) < 2
+        sigma_and_energy = SplitString(str_strip, ' ')
+    end
+    if length(sigma_and_energy) != 2
+        return c_error
+    end
+
 
     # Energy
     energy_str = sigma_and_energy[1]
@@ -642,13 +644,13 @@ function LinkCollisionFunction!(collision::Collision)
     errcode = 0
 
     name = lowercase(collision.name)
-    if name == "elastic" || name == "isotropic"
+    if occursin("elastic",name) || occursin("isotropic",name)
         collision.collfunction = ElasticScattering!
-    elseif name == "backscat"
+    elseif occursin("backscat",name)
         collision.collfunction = ChargeExchange! 
-    elseif name == "excitation"
+    elseif occursin("excitation",name)
         collision.collfunction = InelasticScattering! 
-    elseif name == "ionization"
+    elseif occursin("ionization",name)
         collision.collfunction = Ionization! 
     else
         errcode = c_error

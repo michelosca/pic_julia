@@ -1,6 +1,6 @@
 IONIZATION
-SPECIES: e / Ar
-PROCESS: e + Ar -> 2e + Ar+, Ionization
+SPECIES: e / He
+PROCESS: e + He -> e + e + He+, Ionization
 PARAM.:  E = 24.587 eV, complete set
 COMMENT: Turner et al., Physics of Plasmas 20, 013507 (2013), https://doi.org/10.1063/1.4775084
 COLUMNS: Energy (eV) | Cross section (m2)

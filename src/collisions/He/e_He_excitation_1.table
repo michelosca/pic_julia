@@ -1,6 +1,6 @@
 EXCITATION
 SPECIES: e / He
-PROCESS: e + He -> e + He, Excitation
+PROCESS: e + He -> e + He, Excitation1
 PARAM.:  E = 19.82 eV
 COMMENT: Turner et al., Physics of Plasmas 20, 013507 (2013), https://doi.org/10.1063/1.4775084
 COLUMNS: Energy (eV) | Cross section (m2)
