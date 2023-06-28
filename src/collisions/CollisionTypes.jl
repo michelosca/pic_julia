@@ -59,8 +59,8 @@ function ElasticScattering!(collgroup::CollisionGroup, coll::Collision,
     g_postcoll = g * r
 
     # Particle scattering
-    part1.vel = vel_cm .+ mu * g_postcoll
-    part2.vel = vel_cm .- mu * g_postcoll
+    part1.vel = vel_cm .+ mu/m1 * g_postcoll
+    part2.vel = vel_cm .- mu/m2 * g_postcoll
 #    print("Elastic\n")
 end
 
@@ -93,8 +93,8 @@ function InelasticScattering!(collgroup::CollisionGroup, coll::Collision,
     g_postcoll = sqrt(g*g - 2.0 * E / mu) * r
 
     # Particle scattering
-    part1.vel = vel_cm .+ mu * g_postcoll
-    part2.vel = vel_cm .- mu * g_postcoll
+    part1.vel = vel_cm .+ mu/m1 * g_postcoll
+    part2.vel = vel_cm .- mu/m2 * g_postcoll
 
 #    print("Excitation\n")
 end
