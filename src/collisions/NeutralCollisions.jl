@@ -42,7 +42,7 @@ function NeutralCollisions!(coll_list::Vector{CollisionGroup}, species_list::Vec
 #        print(coll_group.colliding_species[2].name,"\n")
 
         # Loop over ncells-1 because particle_grid_list is ncells-1 long
-        for cell in range(1,system.ncells-1,step=1)
+        for cell in 1:(system.ncells-1)
 #            print("Cell ", cell,"\n")
 
             # Center position of current cell
@@ -125,6 +125,13 @@ function NeutralCollisions!(coll_list::Vector{CollisionGroup}, species_list::Vec
                 #   4.2.- Interpolate cross-section data
                 cross_section_data = Float64[]
                 for colltype in collision_list
+
+                    if colltype.energy_threshold > 0.5 * coll_group.reduced_mass * g * g
+                        # Energy threshold is above the relative energy, hence probability is zero
+                        push!(cross_section_data, 0.0)
+                        continue
+                    end
+
                     # Cross-section vs. g data tables
                     s_data = colltype.cross_section_data
                     g_data = colltype.energy_data

@@ -88,7 +88,6 @@ function BuffAveragedData!(o_block::OutputBlock, system::System,
                 end
             end
 
-
         # plasma POTENTIAL
         elseif param.id == c_o_potential
             if param.dir_id == c_dir_x
@@ -290,7 +289,15 @@ function WriteElectricPotentialToH5!(fid::HDF5.File, pot::Vector{Float64},
     ncells = system.ncells
     c_min = system.cell_min
     c_max = system.cell_max
-    g = create_group(fid, "Electric_Potential")
+
+    # Open electric potential group
+    g_name = "Electric_Potential"
+    if haskey(fid, g_name)
+        g = fid[g_name]
+    else
+        g = create_group(fid, g_name)
+    end
+
     if param.dir_id == c_dir_x
         dset = create_dataset(g, "Vx", Float64,(ncells,))
         if averaged
@@ -316,7 +323,7 @@ function WriteElectricFieldToH5!(fid::HDF5.File, efield::Field,
     c_min = system.cell_min
     c_max = system.cell_max
 
-    # Open E-field group
+    # Open electric field group
     g_name = "Electric_Field"
     if haskey(fid, g_name)
         g = fid[g_name]

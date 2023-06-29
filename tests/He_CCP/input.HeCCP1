@@ -20,7 +20,7 @@ end:system
 
 begin:species
   name = e
-  mass = me
+  mass = 9.109e-27 #me
   charge = -1
   part_per_cell = 512
   spatial_dist = 1.0
@@ -30,7 +30,7 @@ end:species
 
 begin:species
   name = He+ 
-  mass = 4.003amu
+  mass = 6.67e-27 #4.003amu
   charge = 1
   part_per_cell = 512
   spatial_dist = 1.0
@@ -40,7 +40,7 @@ end:species
 
 begin:species
   name = He 
-  mass = 4.003amu
+  mass = 6.67e-27 #4.003amu
   charge = 0
   spatial_dist = 1.0
   temp = 300
