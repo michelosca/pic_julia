@@ -20,7 +20,7 @@ end:system
 
 begin:species
   name = e
-  mass = 9.109e-27 #me
+  mass = 9.109e-31 #me
   charge = -1
   part_per_cell = 512
   spatial_dist = 1.0
