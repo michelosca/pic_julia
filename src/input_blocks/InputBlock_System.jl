@@ -53,7 +53,7 @@ function StartFile_System!(read_step::Int64, species_list::Vector{Species}, syst
 end
 
 
-function StartSystemBlock!(read_step::Int64, system::System)
+function StartSystemBlock!(read_step::Int64, system::System, filename::String)
 
     errcode = c_error
 
@@ -86,9 +86,19 @@ function StartSystemBlock!(read_step::Int64, system::System)
         # Generate a log file name
         now_stamp = Dates.now()
         log_num = Dates.format(now_stamp, "yyyymmddHHMMSS")
-        system.log_file = "PICJ_run_" * log_num * ".log"
+        log_filename = "PICJ_run_" * log_num * ".log"
+
+        # Path to folder
+        index = findlast("/", filename)
+        if index === nothing
+            system.folder = "./"
+        else
+            system.folder = filename[1:index[1]]
+        end
+        system.log_file = system.folder * log_filename
 
         errcode = 0
+
     elseif read_step == 2
         errcode = 0
     end

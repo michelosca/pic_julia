@@ -87,7 +87,6 @@ function SetupInputData!(filename::String
         if (errcode == c_error) return errcode end
         print("End of input deck reading\n\n")
     end
-    GetInputFolder!(system, filename)
     
     return errcode
 end
@@ -110,7 +109,7 @@ function ReadFile!(filename::String, read_step::Int64,
             # ReadLine identifies each line on filename
             errcode = ReadLine!(s, read_step, species_list,
                 system, output_list, constants, waveform_list,
-                collision_list)
+                collision_list, filename)
             if (errcode == c_error)
                 print("***ERROR*** Stop reading at file line ", line,"\n")
                 return errcode  
@@ -127,7 +126,8 @@ function ReadLine!(str::String, read_step::Int64,
     system::System, output_list::Vector{OutputBlock},
     constants::Vector{Tuple{SubString{String},SubString{String}}},
     waveform_list::Vector{Waveform},
-    collision_list::Vector{Collision}
+    collision_list::Vector{Collision},
+    filename::String
     )
 
     errcode = c_error 
@@ -151,7 +151,7 @@ function ReadLine!(str::String, read_step::Int64,
         global block_name = str[i_block+1:end]
         if (occursin("begin", str))
             errcode = StartBlock!(block_name, read_step, species_list,
-                system, output_list, waveform_list, collision_list)
+                system, output_list, waveform_list, collision_list, filename)
             if (errcode == c_error)
                 print("***ERROR*** Something went wrong starting the ",
                     block_name, " block\n")
@@ -267,13 +267,14 @@ function StartBlock!(name::SubString{String}, read_step::Int64,
     species_list::Vector{Species},
     system::System, output_list::Vector{OutputBlock},
     waveform_list::Vector{Waveform},
-    collision_list::Vector{Collision}
+    collision_list::Vector{Collision},
+    filename::String
     )
 
     errcode = c_error
     if (occursin("system",name))
         global block_id = c_block_system
-        errcode = StartSystemBlock!(read_step, system)
+        errcode = StartSystemBlock!(read_step, system, filename)
     elseif (occursin("species",name))
         global block_id = c_block_species
         errcode = StartSpeciesBlock!(read_step, species_list)
@@ -362,18 +363,6 @@ function CheckConstantValues!(var::SubString{String},
     end
 
     return var
-end
-
-
-function GetInputFolder!(system::System, filename::String)
-
-    index = findlast("/", filename)
-    if index === nothing
-        system.folder = "./"
-    else
-        system.folder = filename[1:index[1]]
-    end
-    system.log_file = system.folder * system.log_file
 end
 
 end
