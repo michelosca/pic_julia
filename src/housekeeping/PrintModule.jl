@@ -69,7 +69,7 @@ end
 function PrintWaveform(system::System, w::Waveform)
 
     open(system.log_file,"a") do file
-        @printf(file,"Waveform\n")
+        @printf(file,"Waveform %s\n", w.wavefunction)
         @printf(file, "%s- Amplitude: %g V\n", tab_str1, w.amp)
         @printf(file, "%s- Frequency: %g MHz\n", tab_str1, w.freq/1.e6)
         if w.boundary == c_bc_x_max
