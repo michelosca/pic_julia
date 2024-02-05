@@ -13,6 +13,7 @@ using Constants: c_bc_open
 using Constants: epsilon_0, e, me, kb
 using Tools: linear_interpolation
 
+
 function test_species_densities(species_list::Vector{Species}, system::System)
 
     x = zeros(Float64, system.ncells)
@@ -494,6 +495,67 @@ function MCC_RateCoefficients()
 
     savefig(p, "sim/rate_coefficient_test_eAr.png")
     return p
+end
+
+function load_dens(fid::HDF5.File, species::String)
+    dens = read(fid, "Number_Density")
+    return dens[species]
+end
+
+function load_grid(fid::HDF5.File)
+    system = read(fid, "System")
+    return system["Grid"]
+end
+
+function load_potential(fid)
+    pot = read(fid, "Electric_Potential")
+    return pot["Vx"]
+end
+
+function load_particle_phase_space(fid::HDF5.File, species::String, dir::Symbol)
+    particles = read(fid, "Particles")
+    part_s = particles[species]
+    x = part_s["x"]
+    if dir == :x || dir == :vx
+        v = part_s["vx"]
+    elseif dir == :y || dir == :vy
+        v = part_s["vy"]
+    elseif dir == :z || dir == :vz
+        v = part_s["vz"]
+    else
+        print("Direction not found\n")
+        v = []
+    end
+    return x, v
+end
+
+function generate_distribution_function(data::Array{Float64}, bin_width::Float64)
+    max_val = maximum(data)
+    min_val = minimum(data)
+    
+    min = floor(min_val / bin_width) * bin_width
+    max = ceil(max_val / bin_width) * bin_width
+
+    half_bin = bin_width * 0.5
+    x_df = range(min+half_bin, max-half_bin, step = bin_width)
+    y_df = zeros(Int64, length(x_df))
+
+    for d in data
+        data_allocated = false
+        for (i, x) in enumerate(x_df)
+            if d >= x - half_bin && d <= x + half_bin 
+                y_df[i] += 1
+                data_allocated = true 
+                break
+            end
+        end
+
+        if !data_allocated
+            print("Data has not been allocated\n")
+        end
+    end
+
+    return x_df, y_df
 end
 
 end
