@@ -129,14 +129,14 @@ function Ionization!(collgroup::CollisionGroup, coll::Collision,
             if s.id == electrons.id
                 e_part = part1
             else
-                n_part = part1
+                n_part = part2
                 n_ix = p2_ix
             end
         else
             if s.id == electrons.id
                 e_part = part2
             else
-                n_part = part2
+                n_part = part1
                 n_ix = p1_ix
             end
         end
