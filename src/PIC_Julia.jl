@@ -137,7 +137,7 @@ function run_pic(input_file::String)
         if system.mcc
             RealocateParticlesToGridList!(species_list, system)
             errcode = NeutralCollisions!(collision_list, species_list, system)
-            RealocateParticlesToMainList!(species_list)
+            RealocateParticlesToMainList!(species_list,system)
         end
 
         # 7.- Update time

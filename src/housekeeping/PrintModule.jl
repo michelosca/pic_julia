@@ -61,7 +61,7 @@ function PrintSpecies(system::System, species::Species)
         @printf(file, "%s- initial density: %g m^-3\n", tab_str1, species.init_dens)
         @printf(file, "%s- initial temp: %g K\n", tab_str1, species.init_temp)
         @printf(file, "%s- part. weight: %g\n", tab_str1, species.weight)
-        @printf(file, "%s- particle count: %i\n", tab_str1, species.particle_count)
+        @printf(file, "%s- particle count: %i\n", tab_str1, species.particle_list.len)
         @printf(file, "%s- is background: %s\n", tab_str1, species.is_background_species)
     end
 end

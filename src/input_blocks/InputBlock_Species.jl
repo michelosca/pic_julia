@@ -24,6 +24,7 @@ using Tools: GetUnits!
 using Printf: @sprintf
 using EvaluateExpressions: ReplaceExpressionValues
 using PrintModule: PrintErrorMessage, PrintWarningMessage
+using DataStructures: MutableLinkedList
 
 
 function StartFile_Species!(read_step::Int64, species_list::Vector{Species},
@@ -47,7 +48,7 @@ function StartSpeciesBlock!(read_step::Int64, species_list::Vector{Species})
 
         species.particle_count = 0
         species.part_per_cell = 0
-        species.particle_list = Particle[]
+        species.particle_list = MutableLinkedList{Particle}()
 
         # Initial condition parameters
         species.init_dens = 0.0
@@ -214,11 +215,11 @@ function EndFile_Species!(read_step::Int64, species_list::Vector{Species},
         # Load secondary lists
         if system.mcc
             for species in species_list
-                species.particle_grid_list = Vector{Particle}[]
+                species.particle_grid_list = MutableLinkedList{Particle}[]
                 # Note that particle_grid_list is ncells-1 long!
                 # (because cells surrounding the boundaries are not necessary)
                 for i in range(1, system.ncells-1, step=1)
-                    push!(species.particle_grid_list, Particle[])
+                    push!(species.particle_grid_list, MutableLinkedList{Particle}())
                 end
             end
         end
@@ -318,8 +319,8 @@ function AddNewParticle!(species::Species, temp::Float64, part_pos::Float64)
     part.pos = part_pos
     part.vel = randn(Float64, 3) * sigma
 
-    push!(species.particle_list, part)
-    species.particle_count += 1
+    append!(species.particle_list, part)
+    species.particle_count = species.particle_list.len
 
     return 0 
 end

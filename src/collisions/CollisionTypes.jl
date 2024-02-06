@@ -22,7 +22,7 @@ using Random: rand
 using LinearAlgebra: norm
 
 function ChargeExchange!(collgroup::CollisionGroup, coll::Collision,
-    part1::Particle, part2::Particle, g::Float64, item::Int64, cell::Int64)
+    part1::Particle, part2::Particle, g::Float64, p1_ix::Int64, p2_ix::Int64, cell::Int64)
 
     vel1 = part1.vel
     part1.vel = part2.vel
@@ -33,7 +33,7 @@ end
 
 
 function ElasticScattering!(collgroup::CollisionGroup, coll::Collision,
-    part1::Particle, part2::Particle, g::Float64, item::Int64, cell::Int64)
+    part1::Particle, part2::Particle, g::Float64, p1_ix::Int64, p2_ix::Int64, cell::Int64)
     
     # Species 1
     s1 = collgroup.colliding_species[1]
@@ -66,7 +66,7 @@ end
 
 
 function InelasticScattering!(collgroup::CollisionGroup, coll::Collision,
-    part1::Particle, part2::Particle, g::Float64, item::Int64, cell::Int64)
+    part1::Particle, part2::Particle, g::Float64, p1_ix::Int64, p2_ix::Int64, cell::Int64)
     
     # Species 1
     s1 = collgroup.colliding_species[1]
@@ -101,7 +101,7 @@ end
 
 
 function Ionization!(collgroup::CollisionGroup, coll::Collision,
-    part1::Particle, part2::Particle, g::Float64, item::Int64, cell::Int64)
+    part1::Particle, part2::Particle, g::Float64, p1_ix::Int64, p2_ix::Int64, cell::Int64)
 
     # Set species
     electrons = nothing
@@ -123,18 +123,21 @@ function Ionization!(collgroup::CollisionGroup, coll::Collision,
     # Set particles
     e_part = nothing
     n_part = nothing
+    n_ix = nothing
     for (i,s) in enumerate(collgroup.colliding_species)
         if i == 1
             if s.id == electrons.id
                 e_part = part1
             else
                 n_part = part1
+                n_ix = p2_ix
             end
         else
             if s.id == electrons.id
                 e_part = part2
             else
                 n_part = part2
+                n_ix = p1_ix
             end
         end
     end
@@ -169,16 +172,17 @@ function Ionization!(collgroup::CollisionGroup, coll::Collision,
     new_electron = Particle()
     new_electron.pos = n_part.pos
     new_electron.vel = vel_cm .+ u_e2 * r
-    push!(electrons.particle_grid_list[cell], new_electron)
+    append!(electrons.particle_grid_list[cell], new_electron)
     #  - New ion
     mass_ratio = me/ (mn-me)
     new_ion = Particle()
     new_ion.pos = n_part.pos
     new_ion.vel = vel_cm .- mass_ratio * (u_e1 .+ u_e2)
-    push!(ions.particle_grid_list[cell], new_ion)
+    append!(ions.particle_grid_list[cell], new_ion)
     #  - Remove neutral
     if !neutrals.is_background_species
-        deleteat!(neutrals.particle_grid_list[cell], item)
+        # The particle delete must be looked into more detail, because this shifts particles but not the indexes selected
+        delete!(neutrals.particle_grid_list[cell], n_ix)
     end
 
 #    print("Ionization\n")

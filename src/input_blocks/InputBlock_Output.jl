@@ -208,7 +208,7 @@ function ReadOutputEntry!(name::SubString{String}, var::SubString{String},
             return 0
         end
 
-        if name == "neutral_collisions" || "collisions"
+        if name == "neutral_collisions" || name == "collisions"
             p_id = c_o_neutral_collisions
             var_list = SplitVariableString(var)
 

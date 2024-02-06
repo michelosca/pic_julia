@@ -394,30 +394,32 @@ function WritePhaseSpaceToH5!(fid::HDF5.File, species::Species,
     end
 
     # Number of particles to be writen
-    nparts = species.particle_count
+    nparts = species.particle_list.len
+    part_list_vector = collect(species.particle_list)
 
     # Write particles position 
     pos_label = "x"
     if !haskey(g_species, pos_label)
         dset = create_dataset(g_species, pos_label, datatype(Float64), dataspace(nparts,1))
-        pos_x_array = map(x -> x.pos, species.particle_list) 
+        pos_x_array = map(x -> x.pos, part_list_vector) 
         write(dset, pos_x_array)
+        errcode = 0
     end
 
     # Write particle velocity
     if param.dir_id == c_dir_x
         dset = create_dataset(g_species, "vx", datatype(Float64), dataspace(nparts,1))
-        v_array = map(x -> x.vel[1], species.particle_list) 
+        v_array = map(x -> x.vel[1], part_list_vector) 
         write(dset, v_array)
         errcode = 0
     elseif param.dir_id == c_dir_y
         dset = create_dataset(g_species, "vy", datatype(Float64), dataspace(nparts, 1))
-        v_array = map(x -> x.vel[2], species.particle_list) 
+        v_array = map(x -> x.vel[2], part_list_vector) 
         write(dset, v_array)
         errcode = 0
     elseif param.dir_id == c_dir_z
         dset = create_dataset(g_species, "vz", datatype(Float64), dataspace(nparts, 1))
-        v_array = map(x -> x.vel[3], species.particle_list) 
+        v_array = map(x -> x.vel[3], part_list_vector) 
         write(dset, v_array)
         errcode = 0
     end
@@ -477,7 +479,7 @@ function WriteParticleAttributesToH5!(g::HDF5.Group, s::Species)
     attributes(g)["weight"] = s.weight 
     attributes(g)["mass"] = s.mass 
     attributes(g)["charge"] = s.charge 
-    attributes(g)["part_count"] = s.particle_count 
+    attributes(g)["part_count"] = s.particle_list.len
     attributes(g)["background"] = s.is_background_species
 
     errcode = 0

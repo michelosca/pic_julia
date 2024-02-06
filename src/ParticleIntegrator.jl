@@ -22,9 +22,8 @@ function IntegrateParticlesPhaseSpace!(species_list::Vector{Species},
         cm = charge/mass
         cm_dt2 = dt2 * cm
 
-        i = 1 
-        while i <= length(species.particle_list)
-            part = species.particle_list[i]
+        i = 1
+        for part in species.particle_list
             pos = part.pos
             vel = part.vel
             #print(" - Part pos ", pos,"\n")
@@ -51,13 +50,19 @@ function IntegrateParticlesPhaseSpace!(species_list::Vector{Species},
             vel = vel .+ cm_dt2 * e_field
 
             # Update particle's position and velocity
-            species.particle_list[i].pos += vel[1] * dt
-            species.particle_list[i].vel = vel
+            part.pos += vel[1] * dt
+            part.vel = vel
             #print(" - New part pos ", pos,"\n")
             #print(" - New part vel ", vel,"\n\n")
 
-            ParticleBoundaryConditions!(i, species, system)
-            i += 1
+            # Check BC and push i-counter
+            remove_flag = ParticleBoundaryConditions!(part, system)
+            if remove_flag
+                delete!(species.particle_list, i)
+            else
+                i += 1
+            end
+
         end
     end
 end

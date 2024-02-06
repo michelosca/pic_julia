@@ -1,5 +1,7 @@
 module SharedData 
 
+using DataStructures: MutableLinkedList
+
 mutable struct Particle
     pos::Float64
     vel::Vector{Float64}
@@ -16,8 +18,8 @@ mutable struct Species
 
     dens::Vector{Float64}
     
-    particle_list::Vector{Particle}
-    particle_grid_list::Vector{Vector{Particle}}
+    particle_list::MutableLinkedList{Particle}
+    particle_grid_list::Vector{MutableLinkedList{Particle}}
     particle_count::Int64
     part_per_cell::Int64
 

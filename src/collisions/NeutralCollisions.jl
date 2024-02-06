@@ -100,21 +100,35 @@ function NeutralCollisions!(coll_list::Vector{CollisionGroup}, species_list::Vec
             #   3.1.- Set species and point to particle lists
             species1 = coll_group.colliding_species[1]
             if species1.is_background_species
-                grid_list1 = GenerateBackgroundPartList(species1, N_coll_max, x_pos)
+                sp1_ix = 1:N_coll_max
             else
-                shuffle!(species1.particle_grid_list[cell])
-                grid_list1 = species1.particle_grid_list[cell]
+                sp1_ix = shuffle!([1:length(species1.particle_grid_list[cell]);])
             end
             species2 = coll_group.colliding_species[2]
             if species2.is_background_species
-                grid_list2 = GenerateBackgroundPartList(species2, N_coll_max, x_pos)
+                sp2_ix = 1:N_coll_max
             else
-                shuffle!(species2.particle_grid_list[cell])
-                grid_list2 = species2.particle_grid_list[cell]
+                sp2_ix = shuffle!([1:length(species2.particle_grid_list[cell]);])
             end
 
             #   3.3.- Loop N_coll_max collisions
-            for (item, (part1, part2)) in enumerate(zip(grid_list1, grid_list2)) 
+            for idx_coll in 1:N_coll_max 
+                p1_ix = sp1_ix[idx_coll]
+                p2_ix = sp2_ix[idx_coll]
+
+                # Particle 1
+                if species1.is_background_species
+                    part1 = GenerateRandomParticle(species1, x_pos)
+                else
+                    part1 = species1.particle_grid_list[cell][p1_ix]
+                end
+
+                # Particle 2
+                if species2.is_background_species
+                    part2 = GenerateRandomParticle(species2, x_pos)
+                else
+                    part2 = species2.particle_grid_list[cell][p2_ix]
+                end
 
                 # 4.- COMPUTE COLLISION TYPE
                 #   4.1.- Velocity difference
@@ -183,7 +197,7 @@ function NeutralCollisions!(coll_list::Vector{CollisionGroup}, species_list::Vec
                     if R1 >= P_min && R1 < P_max
                         # Run this collision
                         colltype.collfunction(coll_group, colltype, part1,
-                            part2, g, item, cell)
+                            part2, g, p1_ix, p2_ix, cell)
                         # Add diagnostic
                         colltype.diagnostic[cell] += 1
                         break
@@ -199,18 +213,16 @@ function NeutralCollisions!(coll_list::Vector{CollisionGroup}, species_list::Vec
 end
 
 
-function GenerateBackgroundPartList(species::Species, N_coll_max::Int64, cell_pos::Float64)
-    part_list = Particle[]
+function GenerateRandomParticle(species::Species, cell_pos::Float64)
     Tn = species.init_temp
     m = species.mass
     dev = sqrt(kb * Tn / m)
-    for i in range(1,N_coll_max,step=1)
-        part = Particle()
-        part.pos = cell_pos
-        part.vel = randn(3) * dev 
-        push!(part_list, part)
-    end
-    return part_list
+
+    part = Particle()
+    part.pos = cell_pos
+    part.vel = randn(3) * dev 
+
+    return part
 end
 
 end

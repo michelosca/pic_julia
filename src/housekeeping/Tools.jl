@@ -1,6 +1,7 @@
 module Tools
 
-using SharedData: Species, System, Field
+using DataStructures: MutableLinkedList
+using SharedData: Species, System, Field, Particle
 using Constants: c_error
 using Constants: c_bc_open, c_bc_periodic
 using Constants: c_stag_centre, c_stag_right
@@ -99,33 +100,50 @@ function RealocateParticlesToGridList!(species_list::Vector{Species}, system::Sy
         end
 
         # Loop until ncells-1 because particle_grid_list is ncells-1 long
+        part_count = 0
         for i in range(1,ncells-1,step=1)
-
             # Cell boundaries 
             grid_min = (i - 1.0)*dx + x_min
             grid_max = i*dx + x_min 
-            indexes = findall(
-                x -> (x.pos >= grid_min) & (x.pos <= grid_max),
-                species.particle_list)
-            species.particle_grid_list[i] = splice!(species.particle_list, indexes)
+            # Select particles within cell boundaries
+            species.particle_grid_list[i] = filter(x->(x.pos >= grid_min) & (x.pos < grid_max), species.particle_list)
+            part_count += length(species.particle_grid_list[i])
+        end
+        # If any particle at edge -> add to particle_grid_list[end]
+        grid_max = (ncells-1)*dx + x_min 
+        temp_part_list = filter(x->(x.pos == grid_max), species.particle_list)
+        for p in temp_part_list
+            append!(species.particle_grid_list[end], p) 
         end
 
-        # Check that main particle list is empty
-        if length(species.particle_list) > 0
-            message = "Main particle list of " * species.name * " is not empty"
+        # Check that main list and SUM(sub-list) have same amount of particles 
+        if part_count != species.particle_list.len
+            message = "Species " * species.name * " has particle missmatch when splitting"
             PrintWarningMessage(system, message)
         end
+        # Empty main list
+        species.particle_list = MutableLinkedList{Particle}()
+
     end
 end
 
-function RealocateParticlesToMainList!(species_list::Vector{Species})
+function RealocateParticlesToMainList!(species_list::Vector{Species},system::System)
 
+    ncells = system.ncells
     for species in species_list
         if !species.is_background_species
-            species.particle_list = reduce(vcat, species.particle_grid_list)
-            species.particle_count = length(species.particle_list)
+            n_count = 0
+            for i in range(1,ncells-1,step=1)
+                grid_list = species.particle_grid_list[i]
+                n_count += grid_list.len
+                for p in grid_list 
+                    append!(species.particle_list, p)
+                end
+                grid_list = MutableLinkedList{Particle}()
+            end
         end
     end
+
 end
 
 function GetUnits!(var::Union{String,SubString{String}}; symb='_'::Char)
