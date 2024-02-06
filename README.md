@@ -13,7 +13,11 @@ MCC null-collision method ([Vahedi *et al*, 1995](https://doi.org/10.1016/0010-4
 <!-- TOC end -->
 
 ## **Run PIC-Julia**
- 1. Include PIC-Julia folder to ``LOAD_PATH`` and load PIC_Julia module
+ 1. Install the following libraries
+    ```
+    pkg> add DataStructure, LinearSolve, Printf, LinearAlgebra, HDF5, SparseArrays, Dates, Random
+    ```
+ 2. Include PIC-Julia folder to ``LOAD_PATH`` and load PIC_Julia module
 
     ```Julia
     push!(LOAD_PATH, /path/to/PIC-Julia/)
@@ -21,12 +25,12 @@ MCC null-collision method ([Vahedi *et al*, 1995](https://doi.org/10.1016/0010-4
     using PIC_Julia
     ```
 
- 2. Run ``run_pic(input_file::String)`` function, where 'input_file' is a string with the path to the input-deck file
+ 3. Run ``run_pic(input_file::String)`` function, where 'input_file' is a string with the path to the input-deck file
     ```Julia
     run_pic("path/to/input.deck")
     ```
- 3. Output data in HDF5® format
- 4. Simulation log file is generated
+ 4. Output data in HDF5® format
+ 5. Simulation log file is generated
  
 
 ## **Input description**
